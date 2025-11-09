@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Portfolio {
+  id          String   @id @default(uuid())
+  assetName   String   // e.g., "Bitcoin", "Ethereum", "Gold", "Silver"
+  assetType   AssetType // CRYPTO or METAL
+  symbol      String   // e.g., "BTC", "ETH", "XAU", "XAG"
+  amount      Float    // Amount held
+  buyingPrice Float    // Price at which the asset was bought
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  recommendations Recommendation[]
+  
+  @@index([assetType])
+  @@index([symbol])
+}
+
+model Recommendation {
+  id              String   @id @default(uuid())
+  portfolioId     String
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  action          Action   // BUY, SELL, HOLD
+  reasoning       String[] // Array of key points
+  confidence      Float    // 0-100
+  priceTarget     Float?   // Optional price target
+  riskLevel       RiskLevel // LOW, MEDIUM, HIGH
+  
+  currentPrice    Float
+  priceChange7d   Float    // Percentage change over 7 days
+  volatility      Float    // Calculated volatility
+  movingAverage   Float    // 7-day moving average
+  
+  sentimentScore  Float    // Aggregate sentiment (-1 to 1)
+  sentimentLabel  String   // positive, negative, neutral
+  
+  analysisDate    DateTime @default(now())
+  
+  @@index([portfolioId])
+  @@index([analysisDate])
+}
+
+model News {
+  id              String   @id @default(uuid())
+  title           String
+  description     String   @db.Text
+  content         String?  @db.Text
+  source          String
+  author          String?
+  publishedAt     DateTime
+  url             String   @unique
+  imageUrl        String?
+  
+  relatedAssets   String[] // Array of asset symbols
+  assetType       AssetType?
+  
+  sentimentScore  Float    // -1 to 1
+  sentimentLabel  String   // positive, negative, neutral
+  relevanceScore  Float    // 0 to 1
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([publishedAt])
+  @@index([sentimentLabel])
+  @@index([assetType])
+}
+
+model ChatHistory {
+  id              String   @id @default(uuid())
+  conversationId  String   // Groups messages in same conversation
+  role            Role     // USER or ASSISTANT
+  message         String   @db.Text
+  
+  sources         String[] // References or sources used
+  confidence      Float?   // Confidence level for assistant responses
+  toolsUsed       String[] // Tools used to generate response
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model AnalysisCache {
+  id              String   @id @default(uuid())
+  cacheKey        String   @unique
+  dataType        String   // e.g., "price_history", "news", "sentiment"
+  assetSymbol     String?
+  data            String   @db.Text // JSON stringified data
+  
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  
+  @@index([cacheKey])
+  @@index([expiresAt])
+  @@index([assetSymbol])
+}
+
+enum AssetType {
+  CRYPTO
+  METAL
+}
+
+enum Action {
+  BUY
+  SELL
+  HOLD
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Role {
+  USER
+  ASSISTANT
+}

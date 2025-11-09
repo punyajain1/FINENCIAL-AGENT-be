@@ -1,0 +1,355 @@
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { z } from 'zod';
+import { config } from '../config/config.js';
+import { logger } from '../utils/logger.js';
+import prisma from '../config/database.js';
+import marketDataService from './marketData.service.js';
+import newsService from './news.service.js';
+import portfolioService from './portfolio.service.js';
+
+export interface ChatMessage {
+  role: 'USER' | 'ASSISTANT';
+  message: string;
+  sources?: string[];
+  confidence?: number;
+  toolsUsed?: string[];
+}
+
+/**
+ * Chatbot service using LangChain and Gemini AI
+ */
+class ChatbotService {
+  private model: ChatGoogleGenerativeAI;
+  private memories: Map<string, BufferMemory>;
+
+  constructor() {
+    this.model = new ChatGoogleGenerativeAI({
+      model: 'gemini-pro',
+      apiKey: config.apiKeys.gemini,
+      temperature: 0.7,
+    });
+    this.memories = new Map();
+  }
+
+  /**
+   * Get or create memory for conversation
+   */
+  private getMemory(conversationId: string): BufferMemory {
+    if (!this.memories.has(conversationId)) {
+      this.memories.set(conversationId, new BufferMemory({
+        returnMessages: true,
+        memoryKey: 'chat_history',
+      }));
+    }
+    return this.memories.get(conversationId)!;
+  }
+
+  /**
+   * Create custom tools for the agent
+   */
+  private createTools(): DynamicStructuredTool[] {
+    return [
+      // Market Research Tool
+      new DynamicStructuredTool({
+        name: 'market_research',
+        description: 'Search for current market conditions and price data for cryptocurrencies or precious metals',
+        schema: z.object({
+          asset: z.string().describe('The asset symbol (e.g., BTC, ETH, XAU, XAG)'),
+          assetType: z.enum(['CRYPTO', 'METAL']).describe('The type of asset'),
+        }),
+        func: async ({ asset, assetType }: { asset: string; assetType: 'CRYPTO' | 'METAL' }) => {
+          try {
+            const priceData = assetType === 'CRYPTO'
+              ? await marketDataService.getCryptoPrice(asset)
+              : await marketDataService.getMetalPrice(asset);
+
+            const historicalPrices = assetType === 'CRYPTO'
+              ? await marketDataService.getCryptoHistoricalPrices(asset)
+              : await marketDataService.getMetalHistoricalPrices(asset);
+
+            const technical = marketDataService.calculateTechnicalIndicators(historicalPrices);
+
+            return JSON.stringify({
+              asset,
+              currentPrice: priceData.price,
+              priceChange7d: technical.priceChange7d,
+              trend: technical.trend,
+              volatility: technical.volatility,
+              movingAverage: technical.movingAverage7d,
+            });
+          } catch (error) {
+            logger.error('Market research tool error:', error);
+            return `Error fetching market data for ${asset}`;
+          }
+        },
+      }),
+
+      // Sentiment Analysis Tool
+      new DynamicStructuredTool({
+        name: 'sentiment_analysis',
+        description: 'Analyze current market sentiment for a specific asset based on recent news',
+        schema: z.object({
+          asset: z.string().describe('The asset name (e.g., Bitcoin, Gold)'),
+          assetType: z.enum(['CRYPTO', 'METAL']).describe('The type of asset'),
+        }),
+        func: async ({ asset, assetType }: { asset: string; assetType: 'CRYPTO' | 'METAL' }) => {
+          try {
+            const summary = await newsService.generateNewsSummary(asset);
+            return summary;
+          } catch (error) {
+            logger.error('Sentiment analysis tool error:', error);
+            return `Error analyzing sentiment for ${asset}`;
+          }
+        },
+      }),
+
+      // Portfolio Analysis Tool
+      new DynamicStructuredTool({
+        name: 'portfolio_analysis',
+        description: 'Analyze the user\'s current portfolio and get recommendations',
+        schema: z.object({}),
+        func: async () => {
+          try {
+            const recommendations = await portfolioService.getRecommendations();
+            
+            if (recommendations.length === 0) {
+              return 'User has no assets in portfolio yet.';
+            }
+
+            return JSON.stringify(recommendations.map(r => ({
+              asset: r.portfolio.assetName,
+              symbol: r.portfolio.symbol,
+              amount: r.portfolio.amount,
+              recommendation: r.recommendation.action,
+              confidence: r.recommendation.confidence,
+              riskLevel: r.recommendation.riskLevel,
+              reasoning: r.recommendation.reasoning,
+            })));
+          } catch (error) {
+            logger.error('Portfolio analysis tool error:', error);
+            return 'Error analyzing portfolio';
+          }
+        },
+      }),
+
+      // News Analysis Tool
+      new DynamicStructuredTool({
+        name: 'news_analysis',
+        description: 'Fetch and summarize recent news about specific assets',
+        schema: z.object({
+          asset: z.string().describe('The asset name to search news for'),
+          limit: z.number().default(5).describe('Number of articles to fetch'),
+        }),
+        func: async ({ asset, limit }: { asset: string; limit: number }) => {
+          try {
+            const { articles } = await newsService.getNews({
+              assetName: asset,
+              limit: limit || 5,
+            });
+
+            if (articles.length === 0) {
+              return `No recent news found for ${asset}`;
+            }
+
+            const summary = articles.map(a => 
+              `- ${a.title} (${a.sentiment.label}, ${a.publishedAt.toLocaleDateString()})`
+            ).join('\n');
+
+            return `Recent news for ${asset}:\n${summary}`;
+          } catch (error) {
+            logger.error('News analysis tool error:', error);
+            return `Error fetching news for ${asset}`;
+          }
+        },
+      }),
+
+      // Technical Analysis Tool
+      new DynamicStructuredTool({
+        name: 'technical_analysis',
+        description: 'Perform technical analysis on an asset including price trends and indicators',
+        schema: z.object({
+          asset: z.string().describe('The asset symbol'),
+          assetType: z.enum(['CRYPTO', 'METAL']).describe('The type of asset'),
+          days: z.number().default(7).describe('Number of days for historical analysis'),
+        }),
+        func: async ({ asset, assetType, days }: { asset: string; assetType: 'CRYPTO' | 'METAL'; days: number }) => {
+          try {
+            const historicalPrices = assetType === 'CRYPTO'
+              ? await marketDataService.getCryptoHistoricalPrices(asset, days || 7)
+              : await marketDataService.getMetalHistoricalPrices(asset, days || 7);
+
+            const technical = marketDataService.calculateTechnicalIndicators(historicalPrices);
+
+            return JSON.stringify({
+              asset,
+              analysis: {
+                trend: technical.trend,
+                priceChange: `${technical.priceChange7d.toFixed(2)}%`,
+                volatility: technical.volatility.toFixed(2),
+                movingAverage: technical.movingAverage7d.toFixed(2),
+                recommendation: this.getTechnicalRecommendation(technical),
+              },
+            });
+          } catch (error) {
+            logger.error('Technical analysis tool error:', error);
+            return `Error performing technical analysis for ${asset}`;
+          }
+        },
+      }),
+    ];
+  }
+
+  /**
+   * Get technical recommendation based on indicators
+   */
+  private getTechnicalRecommendation(technical: any): string {
+    if (technical.trend === 'UP' && technical.priceChange7d > 5) {
+      return 'Strong upward momentum - Consider buying';
+    } else if (technical.trend === 'DOWN' && technical.priceChange7d < -5) {
+      return 'Downward trend - Consider selling or wait';
+    } else {
+      return 'Neutral trend - Hold or wait for clearer signals';
+    }
+  }
+
+  /**
+   * Chat with the AI agent
+   */
+  async chat(conversationId: string, userMessage: string): Promise<ChatMessage> {
+    try {
+      // Save user message
+      await this.saveMessage(conversationId, 'USER', userMessage);
+
+      // Create agent with tools
+      const tools = this.createTools();
+      const memory = this.getMemory(conversationId);
+
+      // Get prompt template from LangChain hub
+      const prompt = await pull<any>('hwchase17/react-chat');
+
+      // Create agent
+      const agent = await createReactAgent({
+        llm: this.model,
+        tools,
+        prompt,
+      });
+
+      const agentExecutor = new AgentExecutor({
+        agent,
+        tools,
+        memory,
+        verbose: true,
+      });
+
+      // Add safety disclaimer to system
+      const systemContext = `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
+Provide detailed, personalized investment guidance while always including appropriate risk warnings.
+
+IMPORTANT DISCLAIMERS:
+- This is educational information, not professional financial advice
+- Users should consult licensed financial advisors for major decisions
+- Cryptocurrency and metal markets are volatile and risky
+- Past performance doesn't guarantee future results
+- Only invest what you can afford to lose
+
+When providing advice:
+1. Use available tools to gather current market data
+2. Consider both technical and sentiment analysis
+3. Explain reasoning clearly
+4. Provide confidence levels
+5. Always mention risks
+
+User query: ${userMessage}`;
+
+      // Execute agent
+      const result = await agentExecutor.invoke({
+        input: systemContext,
+      });
+
+      const response = result.output || 'I apologize, but I encountered an issue generating a response.';
+
+      // Extract tools used
+      const toolsUsed = result.intermediateSteps?.map((step: any) => step.action?.tool) || [];
+
+      // Save assistant message
+      const savedMessage = await this.saveMessage(
+        conversationId,
+        'ASSISTANT',
+        response,
+        [],
+        0.8,
+        toolsUsed
+      );
+
+      return {
+        role: 'ASSISTANT',
+        message: response,
+        sources: savedMessage.sources,
+        confidence: savedMessage.confidence || undefined,
+        toolsUsed: savedMessage.toolsUsed,
+      };
+    } catch (error) {
+      logger.error('Chat error:', error);
+      
+      const fallbackResponse = 'I apologize, but I encountered an error. Please try rephrasing your question or try again later.';
+      
+      await this.saveMessage(conversationId, 'ASSISTANT', fallbackResponse);
+      
+      return {
+        role: 'ASSISTANT',
+        message: fallbackResponse,
+      };
+    }
+  }
+
+  /**
+   * Save chat message to database
+   */
+  private async saveMessage(
+    conversationId: string,
+    role: 'USER' | 'ASSISTANT',
+    message: string,
+    sources: string[] = [],
+    confidence?: number,
+    toolsUsed: string[] = []
+  ) {
+    return await prisma.chatHistory.create({
+      data: {
+        conversationId,
+        role,
+        message,
+        sources,
+        confidence,
+        toolsUsed,
+      },
+    });
+  }
+
+  /**
+   * Get conversation history
+   */
+  async getHistory(conversationId: string, limit: number = 50): Promise<ChatMessage[]> {
+    const messages = await prisma.chatHistory.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
+
+    return messages.map(m => ({
+      role: m.role,
+      message: m.message,
+      sources: m.sources,
+      confidence: m.confidence || undefined,
+      toolsUsed: m.toolsUsed,
+    }));
+  }
+
+  /**
+   * Clear conversation memory
+   */
+  clearMemory(conversationId: string): void {
+    this.memories.delete(conversationId);
+  }
+}
+
+export default new ChatbotService();
