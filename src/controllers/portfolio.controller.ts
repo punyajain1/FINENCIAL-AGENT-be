@@ -3,9 +3,6 @@ import portfolioService from '../services/portfolio.service';
 import { AssetType } from '@prisma/client';
 import { logger } from '../utils/logger';
 
-/**
- * Add asset to portfolio
- */
 export const addAsset = async (req: Request, res: Response) => {
   try {
     const { assetName, assetType, symbol, amount, buyingPrice } = req.body;
@@ -32,15 +29,10 @@ export const addAsset = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Get all portfolio assets
- */
 export const getPortfolio = async (req: Request, res: Response) => {
   try {
-    // Always include current prices by default
     const portfolio = await portfolioService.getPortfolioWithCurrentPrices();
     
-    // Calculate total portfolio metrics
     const totalCurrentValue = portfolio.reduce((sum, asset) => sum + asset.totalValue, 0);
     const totalCost = portfolio.reduce((sum, asset) => sum + asset.totalCost, 0);
     const totalProfitLoss = totalCurrentValue - totalCost;
@@ -66,9 +58,6 @@ export const getPortfolio = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Update asset amount
- */
 export const updateAsset = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -90,9 +79,6 @@ export const updateAsset = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Remove asset from portfolio
- */
 export const removeAsset = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -112,9 +98,6 @@ export const removeAsset = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Get recommendations for all portfolio assets
- */
 export const getRecommendations = async (req: Request, res: Response) => {
   try {
     const recommendations = await portfolioService.getRecommendations();
@@ -133,9 +116,6 @@ export const getRecommendations = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Manually trigger analysis for a specific asset
- */
 export const analyzeAsset = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

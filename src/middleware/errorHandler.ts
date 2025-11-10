@@ -1,9 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 
-/**
- * Global error handler middleware
- */
 export const errorHandler = (
   err: Error,
   req: Request,
@@ -26,9 +23,6 @@ export const errorHandler = (
   });
 };
 
-/**
- * Not found handler
- */
 export const notFoundHandler = (req: Request, res: Response) => {
   res.status(404).json({
     success: false,
@@ -38,9 +32,6 @@ export const notFoundHandler = (req: Request, res: Response) => {
   });
 };
 
-/**
- * Async handler wrapper
- */
 export const asyncHandler = (fn: Function) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);

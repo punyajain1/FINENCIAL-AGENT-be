@@ -1,9 +1,6 @@
 import { body, param, query, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
 
-/**
- * Validation error handler
- */
 export const handleValidationErrors = (
   req: Request,
   res: Response,
@@ -20,9 +17,6 @@ export const handleValidationErrors = (
   next();
 };
 
-/**
- * Portfolio validation rules
- */
 export const addAssetValidation = [
   body('assetName').trim().notEmpty().withMessage('Asset name is required'),
   body('assetType').isIn(['CRYPTO', 'METAL']).withMessage('Asset type must be CRYPTO or METAL'),
@@ -43,9 +37,6 @@ export const removeAssetValidation = [
   handleValidationErrors,
 ];
 
-/**
- * News validation rules
- */
 export const getNewsValidation = [
   query('assetType').optional().isIn(['CRYPTO', 'METAL']).withMessage('Invalid asset type'),
   query('sentiment').optional().isIn(['positive', 'negative', 'neutral']).withMessage('Invalid sentiment'),
@@ -54,9 +45,6 @@ export const getNewsValidation = [
   handleValidationErrors,
 ];
 
-/**
- * Chat validation rules
- */
 export const chatValidation = [
   body('message').trim().notEmpty().withMessage('Message is required'),
   body('conversationId').optional().trim(),

@@ -20,17 +20,17 @@ export const config = {
     newsApi: process.env.NEWS_API_KEY || '',
     gnews: process.env.GNEWS_API_KEY || '',
     currentsApi: process.env.CURRENTS_API_KEY || '',
-    coinGecko: process.env.COINGECKO_API_KEY || '', // Optional
+    coinGecko: process.env.COINGECKO_API_KEY || '',
     goldApi: process.env.GOLD_API_KEY || '',
   },
   
   cache: {
-    ttl: parseInt(process.env.CACHE_TTL || '300'), // 5 minutes
-    checkPeriod: parseInt(process.env.CACHE_CHECK_PERIOD || '600'), // 10 minutes
+    ttl: parseInt(process.env.CACHE_TTL || '300'),
+    checkPeriod: parseInt(process.env.CACHE_CHECK_PERIOD || '600'),
   },
   
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
   },
   
@@ -38,7 +38,6 @@ export const config = {
     level: process.env.LOG_LEVEL || 'info',
   },
   
-  // API Endpoints
   apis: {
     coinGecko: 'https://api.coingecko.com/api/v3',
     goldApi: 'https://www.goldapi.io/api',
@@ -49,9 +48,6 @@ export const config = {
   },
 };
 
-/**
- * Validates that all required environment variables are set
- */
 export function validateConfig(): void {
   const requiredKeys = [
     'GEMINI_API_KEY',
@@ -67,7 +63,6 @@ export function validateConfig(): void {
     }
   });
   
-  // At least one news API key is required
   if (!process.env.NEWS_API_KEY && !process.env.GNEWS_API_KEY && !process.env.CURRENTS_API_KEY) {
     missingKeys.push('NEWS_API_KEY or GNEWS_API_KEY or CURRENTS_API_KEY');
   }

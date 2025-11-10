@@ -3,14 +3,10 @@ import chatbotService from '../services/chatbot.service';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
-/**
- * Chat with AI agent
- */
 export const chat = async (req: Request, res: Response) => {
   try {
     const { message, conversationId } = req.body;
 
-    // Generate conversation ID if not provided
     const convId = conversationId || uuidv4();
 
     const response = await chatbotService.chat(convId, message);
@@ -34,9 +30,6 @@ export const chat = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Get chat history
- */
 export const getChatHistory = async (req: Request, res: Response) => {
   try {
     const { conversationId, limit } = req.query;
@@ -45,7 +38,6 @@ export const getChatHistory = async (req: Request, res: Response) => {
       conversationId as string
     );
 
-    // Limit results if needed
     const limitedHistory = limit 
       ? history.slice(-(parseInt(limit as string)))
       : history;

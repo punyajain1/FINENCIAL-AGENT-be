@@ -12,9 +12,6 @@ export interface ChatMessage {
   searchQueries?: string[];
 }
 
-/**
- * Chatbot service using Google Gemini AI with Google Search grounding
- */
 class ChatbotService {
   private genAI: GoogleGenAI;
   private conversations: Map<string, { role: string; content: string }[]>;
@@ -24,9 +21,6 @@ class ChatbotService {
     this.conversations = new Map();
   }
 
-  /**
-   * Get or create conversation history
-   */
   private getConversation(conversationId: string): { role: string; content: string }[] {
     if (!this.conversations.has(conversationId)) {
       this.conversations.set(conversationId, []);
@@ -34,16 +28,11 @@ class ChatbotService {
     return this.conversations.get(conversationId)!;
   }
 
-  /**
-   * Chat with the AI
-   */
   async chat(conversationId: string, userMessage: string): Promise<ChatMessage> {
     try {
-      // Save user message
       const conversation = this.getConversation(conversationId);
       conversation.push({ role: 'user', content: userMessage });
 
-      // Create system prompt
       const systemPrompt = `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
 Provide detailed, personalized investment guidance while always including appropriate risk warnings.
 
@@ -59,24 +48,20 @@ Always provide:
 3. Market context
 4. Diversification suggestions`;
 
-      // Build full prompt with context
       const contextMessages = conversation.slice(-10).map(m => 
         `${m.role}: ${m.content}`
       ).join('\n');
       
       const fullPrompt = `${systemPrompt}\n\nConversation history:\n${contextMessages}\n\nUser: ${userMessage}\n\nAssistant:`;
 
-      // Define Google Search tool configuration for grounding
       const groundingTool = {
-        googleSearch: {}, // Empty object enables Google Search
+        googleSearch: {},
       };
 
-      // Create configuration with Google Search grounding
       const requestConfig = {
         tools: [groundingTool],
       };
 
-      // Get AI response using Google Gemini AI with Google Search grounding
       const response = await this.genAI.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: fullPrompt,
@@ -85,19 +70,16 @@ Always provide:
 
       const assistantMessage = response.text;
 
-      // Extract grounding metadata (search queries and sources)
       const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
       const sources: string[] = [];
       const searchQueries: string[] = [];
 
       if (groundingMetadata) {
-        // Extract search queries used by the model
         if (groundingMetadata.webSearchQueries) {
           searchQueries.push(...groundingMetadata.webSearchQueries);
           logger.info(`Search queries used: ${searchQueries.join(', ')}`);
         }
 
-        // Extract web sources (URIs) used for grounding
         if (groundingMetadata.groundingChunks) {
           groundingMetadata.groundingChunks.forEach((chunk: any) => {
             if (chunk.uri) {
@@ -110,15 +92,12 @@ Always provide:
 
       logger.info(`Chat response generated with Google Search grounding`);
 
-      // Ensure we have a valid response
       if (!assistantMessage) {
         throw new Error('No response generated from AI');
       }
 
-      // Save assistant message
       conversation.push({ role: 'assistant', content: assistantMessage });
 
-      // Save to database
       await Promise.all([
         prisma.chatHistory.create({
           data: {
@@ -153,9 +132,6 @@ Always provide:
     }
   }
 
-  /**
-   * Get conversation history
-   */
   async getHistory(conversationId: string): Promise<ChatMessage[]> {
     try {
       const history = await prisma.chatHistory.findMany({
@@ -177,9 +153,6 @@ Always provide:
     }
   }
 
-  /**
-   * Clear conversation memory
-   */
   clearMemory(conversationId: string): void {
     this.conversations.delete(conversationId);
     logger.info(`Cleared memory for conversation ${conversationId}`);

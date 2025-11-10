@@ -5,7 +5,6 @@ import chatRoutes from './chat.routes';
 
 const router = Router();
 
-// Health check
 router.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -14,7 +13,6 @@ router.get('/health', (req, res) => {
   });
 });
 
-// API routes
 router.use('/portfolio', portfolioRoutes);
 router.use('/news', newsRoutes);
 router.use('/chat', chatRoutes);

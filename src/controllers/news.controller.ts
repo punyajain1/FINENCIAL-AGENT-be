@@ -6,9 +6,6 @@ import portfolioService from '../services/portfolio.service';
 import websocketService from '../services/websocket.service';
 import prisma from '../config/database';
 
-/**
- * Get news with filters
- */
 export const getNews = async (req: Request, res: Response) => {
   try {
     const {
@@ -51,9 +48,6 @@ export const getNews = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Get news summary for an asset
- */
 export const getNewsSummary = async (req: Request, res: Response) => {
   try {
     const { assetName } = req.params;
@@ -76,11 +70,7 @@ export const getNewsSummary = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Server-Sent Events for real-time news updates
- */
 export const newsStream = async (req: Request, res: Response) => {
-  // Set headers for SSE
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -89,10 +79,8 @@ export const newsStream = async (req: Request, res: Response) => {
 
   logger.info(`SSE connection established for news stream: ${assetName || 'all'}`);
 
-  // Send initial connection message
   res.write('data: {"type":"connected","message":"News stream connected"}\n\n');
 
-  // Set up interval to send news updates every 30 seconds
   const intervalId = setInterval(async () => {
     try {
       const filter: any = { limit: 5 };
@@ -113,18 +101,14 @@ export const newsStream = async (req: Request, res: Response) => {
         message: 'Error fetching news',
       })}\n\n`);
     }
-  }, 30000); // Every 30 seconds
+  }, 30000);
 
-  // Clean up on client disconnect
   req.on('close', () => {
     clearInterval(intervalId);
     logger.info('SSE connection closed');
   });
 };
 
-/**
- * Manually trigger news fetch and broadcast
- */
 export const triggerNewsFetch = async (req: Request, res: Response) => {
   try {
     logger.info('Manual news fetch triggered');
@@ -139,7 +123,6 @@ export const triggerNewsFetch = async (req: Request, res: Response) => {
       });
     }
 
-    // Group assets by type
     const cryptoAssets = portfolios
       .filter(p => p.assetType === 'CRYPTO')
       .map(p => p.assetName);
@@ -150,23 +133,19 @@ export const triggerNewsFetch = async (req: Request, res: Response) => {
 
     let allNews: any[] = [];
 
-    // Fetch news for crypto assets
     if (cryptoAssets.length > 0) {
       const cryptoNews = await newsService.fetchNewsForAssets(cryptoAssets, 'CRYPTO');
       allNews.push(...cryptoNews);
     }
 
-    // Fetch news for metal assets
     if (metalAssets.length > 0) {
       const metalNews = await newsService.fetchNewsForAssets(metalAssets, 'METAL');
       allNews.push(...metalNews);
     }
 
-    // Broadcast via WebSocket
     if (allNews.length > 0) {
       websocketService.broadcastNews(allNews);
       
-      // Broadcast summary
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
