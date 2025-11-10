@@ -1,7 +1,7 @@
 {
   "name": "trading-agent-backend",
   "version": "1.0.0",
-  "description": "AI-powered trading agent backend for cryptocurrencies and precious metals",
+  "description": "AI-powered trading agent backend for cryptocurrencies and precious metals using Google Gemini AI",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
@@ -16,16 +16,14 @@
     "ai",
     "crypto",
     "metals",
-    "langchain"
+    "gemini"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/generative-ai": "^0.1.3",
+    "@google/genai": "^1.29.0",
+    "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.13.2",
-    "@langchain/community": "^1.0.0",
-    "@langchain/core": "^1.0.3",
-    "@langchain/google-genai": "^1.0.0",
     "@types/ws": "^8.18.1",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
@@ -34,7 +32,6 @@
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
     "joi": "^17.11.0",
-    "langchain": "^1.0.3",
     "node-cache": "^5.1.2",
     "node-cron": "^3.0.3",
     "uuid": "^9.0.1",

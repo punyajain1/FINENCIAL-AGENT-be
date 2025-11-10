@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import prisma from '../config/database';
@@ -9,18 +9,18 @@ export interface ChatMessage {
   sources?: string[];
   confidence?: number;
   toolsUsed?: string[];
+  searchQueries?: string[];
 }
 
 /**
- * Simplified Chatbot service using Google Gemini AI directly
- * Note: Complex agent framework implementation available in chatbot.service.ts.backup
+ * Chatbot service using Google Gemini AI with Google Search grounding
  */
 class ChatbotService {
-  private genAI: GoogleGenerativeAI;
+  private genAI: GoogleGenAI;
   private conversations: Map<string, { role: string; content: string }[]>;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI(config.apiKeys.gemini);
+    this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
     this.conversations = new Map();
   }
 
@@ -66,11 +66,54 @@ Always provide:
       
       const fullPrompt = `${systemPrompt}\n\nConversation history:\n${contextMessages}\n\nUser: ${userMessage}\n\nAssistant:`;
 
-      // Get AI response using Google Generative AI
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(fullPrompt);
-      const response = await result.response;
-      const assistantMessage = response.text();
+      // Define Google Search tool configuration for grounding
+      const groundingTool = {
+        googleSearch: {}, // Empty object enables Google Search
+      };
+
+      // Create configuration with Google Search grounding
+      const requestConfig = {
+        tools: [groundingTool],
+      };
+
+      // Get AI response using Google Gemini AI with Google Search grounding
+      const response = await this.genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: fullPrompt,
+        config: requestConfig,
+      });
+
+      const assistantMessage = response.text;
+
+      // Extract grounding metadata (search queries and sources)
+      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+      const sources: string[] = [];
+      const searchQueries: string[] = [];
+
+      if (groundingMetadata) {
+        // Extract search queries used by the model
+        if (groundingMetadata.webSearchQueries) {
+          searchQueries.push(...groundingMetadata.webSearchQueries);
+          logger.info(`Search queries used: ${searchQueries.join(', ')}`);
+        }
+
+        // Extract web sources (URIs) used for grounding
+        if (groundingMetadata.groundingChunks) {
+          groundingMetadata.groundingChunks.forEach((chunk: any) => {
+            if (chunk.uri) {
+              sources.push(chunk.uri);
+            }
+          });
+          logger.info(`Sources used: ${sources.length} web pages`);
+        }
+      }
+
+      logger.info(`Chat response generated with Google Search grounding`);
+
+      // Ensure we have a valid response
+      if (!assistantMessage) {
+        throw new Error('No response generated from AI');
+      }
 
       // Save assistant message
       conversation.push({ role: 'assistant', content: assistantMessage });
@@ -89,7 +132,9 @@ Always provide:
             conversationId,
             role: 'ASSISTANT',
             message: assistantMessage,
+            sources: sources.length > 0 ? sources : undefined,
             confidence: 0.85,
+            toolsUsed: sources.length > 0 ? ['googleSearch'] : undefined,
           },
         }),
       ]);
@@ -97,8 +142,10 @@ Always provide:
       return {
         role: 'ASSISTANT',
         message: assistantMessage,
+        sources: sources.length > 0 ? sources : undefined,
+        searchQueries: searchQueries.length > 0 ? searchQueries : undefined,
         confidence: 0.85,
-        toolsUsed: [],
+        toolsUsed: sources.length > 0 ? ['googleSearch'] : [],
       };
     } catch (error) {
       logger.error('Chat error:', error);

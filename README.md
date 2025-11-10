@@ -1,6 +1,6 @@
 # Trading Agent Backend
 
-An AI-powered trading agent backend built with Node.js, Express, TypeScript, LangChain, and Gemini AI. Provides real-time analysis, recommendations, and investment guidance for cryptocurrencies and precious metals.
+An AI-powered trading agent backend built with Node.js, Express, TypeScript, and Google Gemini AI with Google Search grounding. Provides real-time analysis, recommendations, and investment guidance for cryptocurrencies and precious metals.
 
 ## Features
 
@@ -20,8 +20,9 @@ An AI-powered trading agent backend built with Node.js, Express, TypeScript, Lan
 - Automatic deduplication and relevance scoring
 
 ### 3. Intelligent Chatbot
-- LangChain-powered conversational AI
-- Custom tools for market research, sentiment analysis, portfolio analysis
+- Google Gemini AI with Google Search grounding
+- Real-time web information access
+- Source citations and search query transparency
 - Context-aware conversations with memory
 - Personalized investment advice
 - Risk warnings and disclaimers
@@ -32,7 +33,7 @@ An AI-powered trading agent backend built with Node.js, Express, TypeScript, Lan
 - **Framework**: Express.js
 - **Database**: PostgreSQL with Prisma ORM
 - **AI/ML**: 
-  - Google Gemini AI (via LangChain)
+  - Google Gemini AI with Google Search grounding
   - HuggingFace FinBERT for sentiment analysis
 - **APIs**:
   - CoinGecko (Crypto prices)

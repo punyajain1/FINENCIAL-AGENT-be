@@ -1,0 +1,224 @@
+================================================================================
+TRADING AGENT BACKEND - PROJECT SUMMARY
+================================================================================
+
+🎯 WHAT IT DOES
+================================================================================
+An AI-powered investment advisor that provides real-time analysis and 
+recommendations for cryptocurrencies (Bitcoin, Ethereum) and precious metals 
+(Gold, Silver). It combines market data, news sentiment analysis, and Google's 
+Gemini AI to give personalized investment guidance with automated portfolio 
+monitoring.
+
+
+🛠️ TECH STACK
+================================================================================
+
+CORE TECHNOLOGIES
+-----------------
+- Runtime: Node.js with TypeScript
+- Framework: Express.js (REST API)
+- Database: PostgreSQL with Prisma ORM
+- Real-time: WebSockets (ws library) for live news updates
+
+AI/ML SERVICES
+--------------
+- Google Gemini AI (@google/generative-ai, @google/genai)
+  → Conversational AI with Google Search grounding for real-time web data
+- HuggingFace FinBERT (@huggingface/inference)
+  → Financial sentiment analysis on news articles
+
+EXTERNAL APIs
+-------------
+- CoinGecko API → Real-time cryptocurrency prices and historical data
+- Metals-API / Gold API → Precious metals pricing
+- NewsAPI / GNews / Currents API → Multi-source news aggregation
+
+KEY LIBRARIES
+-------------
+- node-cron → Scheduled background jobs (every 5 minutes)
+- node-cache → In-memory caching with database persistence
+- winston → Structured logging
+- express-validator & zod → Request validation
+- express-rate-limit → API rate limiting
+- axios → HTTP requests
+
+
+🔄 HOW IT WORKS
+================================================================================
+
+1. PORTFOLIO MANAGEMENT
+-----------------------
+Users can add crypto/metal assets with purchase price and amount. The system:
+- Fetches current prices every 5 minutes via cron jobs
+- Calculates profit/loss, price changes, and total portfolio value
+- Uses Google Gemini AI to analyze each asset with:
+  • Technical indicators (7-day moving averages, volatility, trends)
+  • News sentiment scores
+  • Risk assessment
+- Generates BUY/SELL/HOLD recommendations with confidence scores and reasoning
+
+2. INTELLIGENT CHATBOT
+-----------------------
+- Powered by Gemini 2.5 Flash with Google Search grounding
+- When users ask questions, the AI:
+  • Searches the web in real-time for current market information
+  • Cites sources (URLs) and shows search queries used
+  • Maintains conversation context (last 10 messages)
+  • Provides personalized advice based on portfolio data
+- Chat history stored in PostgreSQL for continuity
+
+3. NEWS AGGREGATION & SENTIMENT ANALYSIS
+-----------------------------------------
+- Automatic fetching every 5 minutes from multiple news APIs
+- For each article:
+  • FinBERT analyzes sentiment (positive/negative/neutral with confidence)
+  • Calculates relevance score to specific assets
+  • Deduplicates articles across sources
+- WebSocket server broadcasts new articles to connected clients in real-time
+- News stored in database with sentiment scores, indexed by asset type
+
+4. BACKGROUND AUTOMATION (CRON JOBS)
+-------------------------------------
+Runs automatically at scheduled intervals:
+- Every 5 minutes: 
+  • Analyze all portfolio assets
+  • Fetch latest news for portfolio assets
+- Daily at midnight: Clean expired cache entries
+- Weekly: Remove news older than 30 days
+
+5. CACHING STRATEGY
+-------------------
+Two-tier caching system to avoid expensive API calls and improve performance:
+
+TIER 1: In-Memory Cache (node-cache)
+  • Super fast access (stored in RAM)
+  • Lost when server restarts
+  • Handles short-term, frequently-requested data
+
+TIER 2: Database Cache (AnalysisCache table in PostgreSQL)
+  • Persistent storage (survives server restarts)
+  • Slower than memory but faster than external APIs
+  • Used as backup when memory cache misses
+
+CACHE DURATIONS:
+  • Crypto prices (BTC, ETH) → 1 minute (prices change frequently)
+  • Metal prices (Gold, Silver) → 1 minute (real-time pricing needed)
+  • News articles → 5 minutes (news updates every 5 min via cron)
+  • Sentiment analysis → 1 hour (FinBERT results don't change for same text)
+  • Historical price data (7-day) → 5 minutes (used for trend analysis)
+  • Technical indicators → 5 minutes (calculated from historical data)
+
+HOW IT WORKS:
+  1. Request comes in (e.g., "Get Bitcoin price")
+  2. Check in-memory cache → Found? Return it immediately!
+  3. If not in memory, check database cache → Found? Return it!
+  4. If not in database, call external API (CoinGecko)
+  5. Store result in both memory + database with expiration time
+  6. Return result to user
+
+BENEFITS:
+  • Faster responses - No waiting for external APIs
+  • Save money - Free API tiers have request limits (CoinGecko: 10-50 calls/min)
+  • Reliability - If API is down, cache can still serve recent data
+  • Better UX - Users get instant results instead of waiting
+
+AUTOMATIC CLEANUP:
+  • Daily at midnight → Deletes expired cache entries from database
+  • Prevents database from filling up with stale data
+
+EXAMPLE: Without caching, 3 users viewing Bitcoin would make 3 API calls.
+         With caching, 1 API call serves all 3 users (within 1 minute).
+
+6. MARKET DATA SERVICE
+----------------------
+- Fetches real-time prices for BTC, ETH, XAU (gold), XAG (silver)
+- Retrieves 7-day historical data for trend analysis
+- Calculates technical indicators:
+  • 7-day price change percentage
+  • Volatility (standard deviation)
+  • Moving averages
+  • Trend direction (UP/DOWN/SIDEWAYS)
+
+
+📊 DATA FLOW EXAMPLES
+================================================================================
+
+EXAMPLE 1: User adds Bitcoin to portfolio
+------------------------------------------
+1. Asset stored in Portfolio table with buying price
+2. Cron job triggers every 5 minutes
+3. System fetches current BTC price from CoinGecko
+4. Fetches 7-day historical prices and calculates technical indicators
+5. Fetches recent Bitcoin news from multiple sources
+6. FinBERT analyzes sentiment of each article
+7. All data fed to Gemini AI to generate recommendation
+8. Recommendation stored and returned to user
+9. WebSocket broadcasts any new Bitcoin news to connected clients
+
+EXAMPLE 2: User asks chatbot "Should I buy Ethereum now?"
+----------------------------------------------------------
+1. Message stored in ChatHistory table
+2. Sent to Gemini AI with Google Search enabled
+3. Gemini searches web for current Ethereum market data
+4. Returns answer with live data + source URLs + search queries used
+5. Response saved to database with sources and confidence score
+
+
+🔐 KEY FEATURES
+================================================================================
+- Multi-source data: Combines live prices, news, and AI analysis
+- Real-time updates: WebSocket pushes news instantly
+- Persistent storage: All data (portfolio, news, chats, cache) in PostgreSQL
+- Error handling: Winston logging, rate limiting, validation middleware
+- Automated monitoring: Set-it-and-forget-it portfolio tracking
+- Source transparency: Shows which websites AI used for answers
+- Scalable caching: Reduces API calls and improves performance
+
+
+🚀 ARCHITECTURE HIGHLIGHTS
+================================================================================
+The system is event-driven with multiple concurrent processes:
+- HTTP server handles REST API requests
+- WebSocket server maintains persistent connections for real-time updates
+- Cron scheduler runs background tasks independently
+- All services share the same PostgreSQL database through Prisma
+- Caching layer sits between services and external APIs
+- Modular service architecture (each service handles one domain)
+
+This creates a self-sustaining investment advisor that continuously monitors 
+markets, analyzes sentiment, and provides AI-powered guidance without manual 
+intervention.
+
+
+📋 DATABASE SCHEMA (via Prisma)
+================================================================================
+Portfolio → Stores user's crypto/metal holdings with buying prices
+News → Stores articles with sentiment scores and related assets
+ChatHistory → Stores conversation messages with sources and confidence
+AnalysisCache → Stores temporary cached data with expiration times
+
+
+🔑 REQUIRED API KEYS
+================================================================================
+- GEMINI_API_KEY (Required) → Google AI for chatbot and analysis
+- HUGGINGFACE_API_KEY → For FinBERT sentiment analysis
+- NEWS_API_KEY / GNEWS_API_KEY / CURRENTS_API_KEY → For news aggregation
+- METALS_API_KEY → For precious metals pricing
+- COINGECKO_API_KEY (Optional) → Higher rate limits for crypto data
+- DATABASE_URL → PostgreSQL connection string
+
+
+📝 NOTES
+================================================================================
+- All prices in USD
+- Supported assets: BTC, ETH, XAU (Gold), XAG (Silver)
+- Rate limiting applied to prevent API abuse
+- Automatic cleanup of old data to manage storage
+- TypeScript for type safety across the entire codebase
+- Environment-based configuration (development/production modes)
+
+================================================================================
+Generated: November 10, 2025
+Project: Trading Agent Backend (FINENCIAL-AGENT-be)
+================================================================================
