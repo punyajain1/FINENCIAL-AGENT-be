@@ -1,6 +1,6 @@
-# Trading Agent Backend
+# Finencial Adviser
 
-An AI-powered trading agent backend built with Node.js, Express, TypeScript, and Google Gemini AI with Google Search grounding. Provides real-time analysis, recommendations, and investment guidance for cryptocurrencies and precious metals.
+An AI-powered finencial adviser built with Node.js, Express, TypeScript, and Google Gemini AI with Google Search grounding. Provides real-time analysis, recommendations, and investment guidance for cryptocurrencies and precious metals.
 
 ## Features
 

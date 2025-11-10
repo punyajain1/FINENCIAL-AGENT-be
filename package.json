@@ -1,7 +1,7 @@
 {
-  "name": "trading-agent-backend",
+  "name": "finencial-adviser",
   "version": "1.0.0",
-  "description": "AI-powered trading agent backend for cryptocurrencies and precious metals using Google Gemini AI",
+  "description": "AI-powered finencial adviser for cryptocurrencies and precious metals using Google Gemini AI",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",

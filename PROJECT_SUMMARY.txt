@@ -1,10 +1,10 @@
 ================================================================================
-TRADING AGENT BACKEND - PROJECT SUMMARY
+FINENCIAL ADVISER - PROJECT SUMMARY
 ================================================================================
 
 🎯 WHAT IT DOES
 ================================================================================
-An AI-powered investment advisor that provides real-time analysis and 
+An AI-powered finencial adviser that provides real-time analysis and 
 recommendations for cryptocurrencies (Bitcoin, Ethereum) and precious metals 
 (Gold, Silver). It combines market data, news sentiment analysis, and Google's 
 Gemini AI to give personalized investment guidance with automated portfolio 
