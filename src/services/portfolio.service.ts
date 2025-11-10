@@ -1,5 +1,6 @@
 import prisma from '../config/database';
-import { AssetType, Action, RiskLevel } from '@prisma/client';
+import { AssetType } from '@prisma/client';
+import { Action, RiskLevel } from '../types';
 import marketDataService, { TechnicalIndicators } from './marketData.service';
 import newsService from './news.service';
 import sentimentService from './sentiment.service';
@@ -224,40 +225,23 @@ class PortfolioService {
         newsArticles.slice(0, 5)
       );
 
-      // Store recommendation
-      const savedRecommendation = await prisma.recommendation.create({
-        data: {
-          portfolioId,
-          action: recommendation.action,
-          reasoning: recommendation.reasoning,
-          confidence: recommendation.confidence,
-          priceTarget: recommendation.priceTarget,
-          riskLevel: recommendation.riskLevel,
-          currentPrice: currentPrice.price,
-          priceChange7d: technicalIndicators.priceChange7d,
-          volatility: technicalIndicators.volatility,
-          movingAverage: technicalIndicators.movingAverage7d,
-          sentimentScore: aggregatedSentiment.score,
-          sentimentLabel: aggregatedSentiment.label,
-        },
-      });
-
       logger.info(`Recommendation generated for ${portfolio.assetName}: ${recommendation.action}`);
 
+      // Return recommendation without saving to database
       return {
-        id: savedRecommendation.id,
-        action: savedRecommendation.action,
-        reasoning: savedRecommendation.reasoning,
-        confidence: savedRecommendation.confidence,
-        priceTarget: savedRecommendation.priceTarget || undefined,
-        riskLevel: savedRecommendation.riskLevel,
-        currentPrice: savedRecommendation.currentPrice,
-        priceChange7d: savedRecommendation.priceChange7d,
-        volatility: savedRecommendation.volatility,
-        movingAverage: savedRecommendation.movingAverage,
-        sentimentScore: savedRecommendation.sentimentScore,
-        sentimentLabel: savedRecommendation.sentimentLabel,
-        analysisDate: savedRecommendation.analysisDate,
+        id: `temp-${portfolioId}-${Date.now()}`, // Temporary ID
+        action: recommendation.action,
+        reasoning: recommendation.reasoning,
+        confidence: recommendation.confidence,
+        priceTarget: recommendation.priceTarget || undefined,
+        riskLevel: recommendation.riskLevel,
+        currentPrice: currentPrice.price,
+        priceChange7d: technicalIndicators.priceChange7d,
+        volatility: technicalIndicators.volatility,
+        movingAverage: technicalIndicators.movingAverage7d,
+        sentimentScore: aggregatedSentiment.score,
+        sentimentLabel: aggregatedSentiment.label,
+        analysisDate: new Date(),
       };
     } catch (error) {
       logger.error('Error analyzing asset:', error);
@@ -365,17 +349,17 @@ Format your response as JSON:
     riskLevel: RiskLevel;
   } {
     const reasoning: string[] = [];
-    let action: Action = 'HOLD';
+    let action: Action = Action.HOLD;
     let confidence = 50;
-    let riskLevel: RiskLevel = 'MEDIUM';
+    let riskLevel: RiskLevel = RiskLevel.MEDIUM;
 
     // Technical analysis
     if (technical.priceChange7d > 5 && technical.trend === 'UP') {
-      action = 'BUY';
+      action = Action.BUY;
       reasoning.push('Strong upward price momentum over the past 7 days');
       confidence += 15;
     } else if (technical.priceChange7d < -5 && technical.trend === 'DOWN') {
-      action = 'SELL';
+      action = Action.SELL;
       reasoning.push('Significant downward trend detected');
       confidence += 15;
     } else {
@@ -384,13 +368,13 @@ Format your response as JSON:
 
     // Sentiment analysis
     if (sentiment.score > 0.3) {
-      if (action === 'SELL') action = 'HOLD';
-      else action = 'BUY';
+      if (action === Action.SELL) action = Action.HOLD;
+      else action = Action.BUY;
       reasoning.push('Positive market sentiment from recent news');
       confidence += 10;
     } else if (sentiment.score < -0.3) {
-      if (action === 'BUY') action = 'HOLD';
-      else action = 'SELL';
+      if (action === Action.BUY) action = Action.HOLD;
+      else action = Action.SELL;
       reasoning.push('Negative market sentiment detected');
       confidence += 10;
     } else {
@@ -399,10 +383,10 @@ Format your response as JSON:
 
     // Volatility assessment
     if (technical.volatility > technical.movingAverage7d * 0.1) {
-      riskLevel = 'HIGH';
+      riskLevel = RiskLevel.HIGH;
       reasoning.push('High volatility indicates increased risk');
     } else if (technical.volatility < technical.movingAverage7d * 0.05) {
-      riskLevel = 'LOW';
+      riskLevel = RiskLevel.LOW;
       reasoning.push('Low volatility suggests stable price action');
     }
 
@@ -415,20 +399,18 @@ Format your response as JSON:
   }
 
   /**
-   * Get latest recommendations for all portfolio assets
+   * Get fresh recommendations for all portfolio assets
+   * Note: Recommendations are generated on-demand, not stored in database
    */
   async getRecommendations(): Promise<any[]> {
     const portfolios = await this.getPortfolio();
     const recommendations = [];
 
     for (const portfolio of portfolios) {
-      const latestRec = await prisma.recommendation.findFirst({
-        where: { portfolioId: portfolio.id },
-        orderBy: { analysisDate: 'desc' },
-        include: { portfolio: true },
-      });
-
-      if (latestRec) {
+      try {
+        // Generate fresh recommendation for each asset
+        const recommendation = await this.analyzeAsset(portfolio.id);
+        
         recommendations.push({
           portfolio: {
             id: portfolio.id,
@@ -438,21 +420,24 @@ Format your response as JSON:
             amount: portfolio.amount,
           },
           recommendation: {
-            id: latestRec.id,
-            action: latestRec.action,
-            reasoning: latestRec.reasoning,
-            confidence: latestRec.confidence,
-            priceTarget: latestRec.priceTarget,
-            riskLevel: latestRec.riskLevel,
-            currentPrice: latestRec.currentPrice,
-            priceChange7d: latestRec.priceChange7d,
-            volatility: latestRec.volatility,
-            movingAverage: latestRec.movingAverage,
-            sentimentScore: latestRec.sentimentScore,
-            sentimentLabel: latestRec.sentimentLabel,
-            analysisDate: latestRec.analysisDate,
+            id: recommendation.id,
+            action: recommendation.action,
+            reasoning: recommendation.reasoning,
+            confidence: recommendation.confidence,
+            priceTarget: recommendation.priceTarget,
+            riskLevel: recommendation.riskLevel,
+            currentPrice: recommendation.currentPrice,
+            priceChange7d: recommendation.priceChange7d,
+            volatility: recommendation.volatility,
+            movingAverage: recommendation.movingAverage,
+            sentimentScore: recommendation.sentimentScore,
+            sentimentLabel: recommendation.sentimentLabel,
+            analysisDate: recommendation.analysisDate,
           },
         });
+      } catch (error) {
+        logger.error(`Error generating recommendation for ${portfolio.assetName}:`, error);
+        // Skip this asset if recommendation fails
       }
     }
 
@@ -464,10 +449,10 @@ Format your response as JSON:
    */
   private normalizeAction(action: string): Action {
     const normalized = action.toUpperCase();
-    if (normalized === 'BUY' || normalized === 'SELL' || normalized === 'HOLD') {
-      return normalized as Action;
-    }
-    return 'HOLD';
+    if (normalized === 'BUY') return Action.BUY;
+    if (normalized === 'SELL') return Action.SELL;
+    if (normalized === 'HOLD') return Action.HOLD;
+    return Action.HOLD;
   }
 
   /**
@@ -475,10 +460,10 @@ Format your response as JSON:
    */
   private normalizeRiskLevel(level: string): RiskLevel {
     const normalized = level.toUpperCase();
-    if (normalized === 'LOW' || normalized === 'MEDIUM' || normalized === 'HIGH') {
-      return normalized as RiskLevel;
-    }
-    return 'MEDIUM';
+    if (normalized === 'LOW') return RiskLevel.LOW;
+    if (normalized === 'MEDIUM') return RiskLevel.MEDIUM;
+    if (normalized === 'HIGH') return RiskLevel.HIGH;
+    return RiskLevel.MEDIUM;
   }
 }
 

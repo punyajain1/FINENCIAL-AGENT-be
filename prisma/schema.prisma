@@ -20,35 +20,8 @@ model Portfolio {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  recommendations Recommendation[]
-  
   @@index([assetType])
   @@index([symbol])
-}
-
-model Recommendation {
-  id              String   @id @default(uuid())
-  portfolioId     String
-  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
-  
-  action          Action   // BUY, SELL, HOLD
-  reasoning       String[] // Array of key points
-  confidence      Float    // 0-100
-  priceTarget     Float?   // Optional price target
-  riskLevel       RiskLevel // LOW, MEDIUM, HIGH
-  
-  currentPrice    Float
-  priceChange7d   Float    // Percentage change over 7 days
-  volatility      Float    // Calculated volatility
-  movingAverage   Float    // 7-day moving average
-  
-  sentimentScore  Float    // Aggregate sentiment (-1 to 1)
-  sentimentLabel  String   // positive, negative, neutral
-  
-  analysisDate    DateTime @default(now())
-  
-  @@index([portfolioId])
-  @@index([analysisDate])
 }
 
 model News {
@@ -110,18 +83,6 @@ model AnalysisCache {
 enum AssetType {
   CRYPTO
   METAL
-}
-
-enum Action {
-  BUY
-  SELL
-  HOLD
-}
-
-enum RiskLevel {
-  LOW
-  MEDIUM
-  HIGH
 }
 
 enum Role {
