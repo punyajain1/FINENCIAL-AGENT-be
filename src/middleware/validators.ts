@@ -28,7 +28,8 @@ export const addAssetValidation = [
 
 export const updateAssetValidation = [
   param('id').isUUID().withMessage('Invalid portfolio ID'),
-  body('amount').isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  body('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  body('buyingPrice').optional().isFloat({ min: 0 }).withMessage('Buying price must be a positive number'),
   handleValidationErrors,
 ];
 

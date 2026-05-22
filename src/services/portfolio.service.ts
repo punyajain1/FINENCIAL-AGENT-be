@@ -5,7 +5,8 @@ import marketDataService, { TechnicalIndicators } from './marketData.service';
 import newsService from './news.service';
 import sentimentService from './sentiment.service';
 import { logger } from '../utils/logger';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
+import { config } from '../config/config';
 
 export interface PortfolioAsset {
   id: string;
@@ -14,6 +15,7 @@ export interface PortfolioAsset {
   symbol: string;
   amount: number;
   buyingPrice: number;
+  lastAnalyzedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,10 +50,10 @@ export interface RecommendationData {
  * Service for managing portfolio and generating recommendations
  */
 class PortfolioService {
-  private genAI: GoogleGenerativeAI;
+  private genAI: GoogleGenAI;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
   }
 
   /**
@@ -152,16 +154,16 @@ class PortfolioService {
   }
 
   /**
-   * Update asset amount
+   * Update asset fields
    */
-  async updateAsset(id: string, amount: number): Promise<PortfolioAsset> {
+  async updateAsset(id: string, updateData: { amount?: number; buyingPrice?: number }): Promise<PortfolioAsset> {
     try {
       const asset = await prisma.portfolio.update({
         where: { id },
-        data: { amount },
+        data: updateData,
       });
 
-      logger.info(`Asset updated: ${asset.assetName} - Amount: ${amount}`);
+      logger.info(`Asset updated: ${asset.assetName} - Data: ${JSON.stringify(updateData)}`);
       return asset;
     } catch (error) {
       logger.error('Error updating asset:', error);
@@ -224,6 +226,14 @@ class PortfolioService {
         aggregatedSentiment,
         newsArticles.slice(0, 5)
       );
+
+      // Update lastAnalyzedAt timestamp in database
+      await prisma.portfolio.update({
+        where: { id: portfolioId },
+        data: { lastAnalyzedAt: new Date() },
+      }).catch(err => {
+        logger.error(`Failed to update lastAnalyzedAt for ${portfolio.assetName}:`, err);
+      });
 
       logger.info(`Recommendation generated for ${portfolio.assetName}: ${recommendation.action}`);
 
@@ -334,14 +344,18 @@ REQUIRED JSON FORMAT (respond ONLY with valid JSON):
 }`;
 
     try {
-      // Use Google Generative AI directly
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      
       logger.info(`Generating AI recommendation for ${portfolio.assetName} at $${currentPrice.toFixed(2)} (bought at $${portfolio.buyingPrice.toFixed(2)})`);
       
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const response = await this.genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+      const text = response.text;
+
+      if (!text) {
+        logger.warn(`No valid text returned from AI response for ${portfolio.assetName}, using fallback`);
+        throw new Error('Invalid AI response');
+      }
 
       logger.debug(`AI Response for ${portfolio.assetName}: ${text.substring(0, 200)}...`);
 

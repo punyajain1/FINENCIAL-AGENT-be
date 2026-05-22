@@ -70,7 +70,22 @@ class WebSocketService {
       // Fetch all news from database, ordered by most recent first
       const allNews = await prisma.news.findMany({
         orderBy: { publishedAt: 'desc' },
-        take: 100, // Limit to latest 100 articles to avoid overwhelming the client
+        take: 20, // Limit to latest 20 articles to avoid overwhelming the client
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          source: true,
+          author: true,
+          publishedAt: true,
+          url: true,
+          imageUrl: true,
+          relatedAssets: true,
+          assetType: true,
+          sentimentScore: true,
+          sentimentLabel: true,
+          relevanceScore: true,
+        },
       });
 
       if (allNews.length === 0) {
@@ -90,7 +105,7 @@ class WebSocketService {
         id: article.id,
         title: article.title,
         description: article.description,
-        content: article.content || undefined,
+        content: undefined,
         source: article.source,
         author: article.author || undefined,
         publishedAt: article.publishedAt,

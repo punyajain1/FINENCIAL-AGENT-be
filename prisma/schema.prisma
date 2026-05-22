@@ -11,14 +11,15 @@ datasource db {
 }
 
 model Portfolio {
-  id          String   @id @default(uuid())
-  assetName   String   // e.g., "Bitcoin", "Ethereum", "Gold", "Silver"
-  assetType   AssetType // CRYPTO or METAL
-  symbol      String   // e.g., "BTC", "ETH", "XAU", "XAG"
-  amount      Float    // Amount held
-  buyingPrice Float    // Price at which the asset was bought
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(uuid())
+  assetName      String    // e.g., "Bitcoin", "Ethereum", "Gold", "Silver"
+  assetType      AssetType // CRYPTO or METAL
+  symbol         String    // e.g., "BTC", "ETH", "XAU", "XAG"
+  amount         Float     // Amount held
+  buyingPrice    Float     // Price at which the asset was bought
+  lastAnalyzedAt DateTime? // Timestamp of last AI analysis
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   
   @@index([assetType])
   @@index([symbol])

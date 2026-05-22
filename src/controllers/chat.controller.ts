@@ -17,7 +17,6 @@ export const chat = async (req: Request, res: Response) => {
         conversationId: convId,
         message: response.message,
         sources: response.sources,
-        confidence: response.confidence,
         toolsUsed: response.toolsUsed,
       },
     });

@@ -1,49 +1,31 @@
-import NodeCache from 'node-cache';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import prisma from '../config/database';
 
 /**
- * In-memory cache service with database fallback
+ * Persistent Database Cache Service
  */
 class CacheService {
-  private cache: NodeCache;
-
-  constructor() {
-    this.cache = new NodeCache({
-      stdTTL: config.cache.ttl,
-      checkperiod: config.cache.checkPeriod,
-      useClones: false,
-    });
-
-    this.cache.on('expired', (key) => {
-      logger.debug(`Cache key expired: ${key}`);
-    });
-  }
-
   /**
    * Get value from cache
    */
   async get<T>(key: string): Promise<T | null> {
-    // Try in-memory cache first
-    const memoryValue = this.cache.get<T>(key);
-    if (memoryValue !== undefined) {
-      logger.debug(`Cache hit (memory): ${key}`);
-      return memoryValue;
-    }
-
-    // Fallback to database cache
     try {
       const dbCache = await prisma.analysisCache.findUnique({
         where: { cacheKey: key },
       });
 
-      if (dbCache && dbCache.expiresAt > new Date()) {
-        const data = JSON.parse(dbCache.data) as T;
-        // Restore to memory cache
-        this.cache.set(key, data);
-        logger.debug(`Cache hit (database): ${key}`);
-        return data;
+      if (dbCache) {
+        if (dbCache.expiresAt > new Date()) {
+          const data = JSON.parse(dbCache.data) as T;
+          logger.debug(`Cache hit (database): ${key}`);
+          return data;
+        } else {
+          // Explicitly delete expired cache to save DB space
+          await prisma.analysisCache.delete({
+            where: { cacheKey: key },
+          }).catch(() => {});
+        }
       }
     } catch (error) {
       logger.error(`Error retrieving from database cache: ${error}`);
@@ -59,10 +41,6 @@ class CacheService {
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
     const actualTtl = ttl || config.cache.ttl;
 
-    // Set in memory cache
-    this.cache.set(key, value, actualTtl);
-
-    // Set in database cache for persistence
     try {
       const expiresAt = new Date(Date.now() + actualTtl * 1000);
       await prisma.analysisCache.upsert({
@@ -89,7 +67,6 @@ class CacheService {
    * Delete value from cache
    */
   async delete(key: string): Promise<void> {
-    this.cache.del(key);
     try {
       await prisma.analysisCache.delete({
         where: { cacheKey: key },
@@ -104,7 +81,6 @@ class CacheService {
    * Clear all cache
    */
   async clear(): Promise<void> {
-    this.cache.flushAll();
     try {
       await prisma.analysisCache.deleteMany({});
       logger.info('Cache cleared');

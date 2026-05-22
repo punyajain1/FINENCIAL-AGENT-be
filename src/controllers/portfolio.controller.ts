@@ -61,9 +61,17 @@ export const getPortfolio = async (req: Request, res: Response) => {
 export const updateAsset = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { amount } = req.body;
+    const { amount, buyingPrice } = req.body;
 
-    const asset = await portfolioService.updateAsset(id, parseFloat(amount));
+    const updateData: { amount?: number; buyingPrice?: number } = {};
+    if (amount !== undefined) {
+      updateData.amount = parseFloat(amount);
+    }
+    if (buyingPrice !== undefined) {
+      updateData.buyingPrice = parseFloat(buyingPrice);
+    }
+
+    const asset = await portfolioService.updateAsset(id, updateData);
 
     res.json({
       success: true,

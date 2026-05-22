@@ -10,35 +10,53 @@ import prisma from '../config/database';
  * Scheduled jobs service
  */
 class CronJobsService {
+  private scheduledTasks: cron.ScheduledTask[] = [];
+
   /**
    * Initialize all cron jobs
    */
   initializeJobs(): void {
-    // Analyze portfolio assets every 5 minutes
-    cron.schedule('*/5 * * * *', async () => {
+    // Analyze portfolio assets hourly
+    const portfolioJob = cron.schedule('0 * * * *', async () => {
       logger.info('Running portfolio analysis job...');
       await this.analyzeAllPortfolios();
     });
+    this.scheduledTasks.push(portfolioJob);
 
     // Fetch news every 5 minutes
-    cron.schedule('*/5 * * * *', async () => {
+    const newsJob = cron.schedule('*/5 * * * *', async () => {
       logger.info('Running news fetch job...');
       await this.fetchAllNews();
     });
+    this.scheduledTasks.push(newsJob);
 
     // Clean expired cache daily at midnight
-    cron.schedule('0 0 * * *', async () => {
+    const cacheJob = cron.schedule('0 0 * * *', async () => {
       logger.info('Running cache cleanup job...');
       await cacheService.cleanExpired();
     });
+    this.scheduledTasks.push(cacheJob);
 
     // Clean old news data (older than 30 days) weekly
-    cron.schedule('0 0 * * 0', async () => {
+    const cleanNewsJob = cron.schedule('0 0 * * 0', async () => {
       logger.info('Running old news cleanup job...');
       await this.cleanOldNews();
     });
+    this.scheduledTasks.push(cleanNewsJob);
 
     logger.info('Cron jobs initialized successfully');
+  }
+
+  /**
+   * Stop all scheduled jobs
+   */
+  stopJobs(): void {
+    logger.info(`Stopping ${this.scheduledTasks.length} scheduled cron jobs...`);
+    for (const task of this.scheduledTasks) {
+      task.stop();
+    }
+    this.scheduledTasks = [];
+    logger.info('All cron jobs stopped');
   }
 
   /**
@@ -55,8 +73,16 @@ class CronJobsService {
 
       logger.info(`Analyzing ${portfolios.length} portfolio assets...`);
 
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
       for (const portfolio of portfolios) {
         try {
+          // Skip any asset that was analyzed within the last 2 hours
+          if (portfolio.lastAnalyzedAt && new Date(portfolio.lastAnalyzedAt) > twoHoursAgo) {
+            logger.info(`Skipping analysis for ${portfolio.assetName} (${portfolio.symbol}) - analyzed recently at ${portfolio.lastAnalyzedAt.toISOString()}`);
+            continue;
+          }
+
           await portfolioService.analyzeAsset(portfolio.id);
           logger.info(`Analysis completed for ${portfolio.assetName}`);
           

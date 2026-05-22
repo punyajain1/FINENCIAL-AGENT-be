@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinPilot - Minimalist Portfolio Advisor</title>
+  <!-- Google Fonts: Inter for clean typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div class="app-container">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="logo">FINPILOT</div>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
+        <button class="nav-tab" data-tab="chatbot">AI Assistant</button>
+        <button class="nav-tab" data-tab="news">News Stream</button>
+        <button class="nav-tab" data-tab="recommendations">Recommendations</button>
+      </nav>
+      <div class="connection-status">
+        <span class="status-indicator offline" id="ws-indicator"></span>
+        <span class="status-text" id="ws-status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="app-main">
+
+      <!-- ================= DASHBOARD TAB ================= -->
+      <section id="tab-dashboard" class="tab-content active">
+        <div class="dashboard-summary">
+          <div class="summary-card">
+            <span class="summary-label">Total Value</span>
+            <span class="summary-value" id="stat-total-value">$0.00</span>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Total Cost</span>
+            <span class="summary-value" id="stat-total-cost">$0.00</span>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Profit / Loss</span>
+            <span class="summary-value" id="stat-total-pl">$0.00 (0.00%)</span>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h2>Assets Portfolio</h2>
+          <button class="btn btn-primary" id="open-add-asset-btn">+ Add Asset</button>
+        </div>
+
+        <div class="table-container">
+          <table id="assets-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Symbol</th>
+                <th>Type</th>
+                <th>Holdings</th>
+                <th>Buy Price</th>
+                <th>Current Price</th>
+                <th>P&L</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assets-list">
+              <!-- Rendered dynamically -->
+              <tr>
+                <td colspan="8" class="text-muted text-center" style="padding: 40px 0;">No assets found in your portfolio.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= AI CHATBOT TAB ================= -->
+      <section id="tab-chatbot" class="tab-content">
+        <div class="chat-container">
+          <div class="chat-main">
+            <div class="chat-history" id="chat-history-box">
+              <div class="chat-message assistant">
+                <div class="message-content">
+                  Hello, I am FinPilot, your AI financial advisor. How can I help you analyze cryptocurrencies, precious metals, or your current portfolio holds today?
+                </div>
+              </div>
+            </div>
+            
+            <form class="chat-input-form" id="chat-form">
+              <input type="text" id="chat-input" placeholder="Ask about markets, trends, or asset allocation..." required autocomplete="off">
+              <button type="submit" class="btn btn-secondary">Send</button>
+            </form>
+          </div>
+          
+          <div class="chat-sidebar">
+            <h3>Grounding Sources</h3>
+            <div id="sources-container" class="sources-list">
+              <p class="text-muted small">Sources and references used by the AI to answer your queries will appear here.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= NEWS STREAM TAB ================= -->
+      <section id="tab-news" class="tab-content">
+        <div class="section-header">
+          <h2>Real-Time News Stream</h2>
+          <button class="btn btn-secondary small" id="trigger-news-fetch-btn">Force Fetch News</button>
+        </div>
+        <div class="news-container">
+          <div class="news-list" id="news-feed">
+            <!-- Rendered dynamically via REST or WS -->
+            <p class="text-muted" style="padding: 20px 0;">Connecting to news socket feed...</p>
+          </div>
+          <div class="news-sidebar">
+            <div class="sentiment-box">
+              <h3>24H Market Sentiment</h3>
+              <div class="sentiment-bar-container">
+                <div class="sentiment-bar">
+                  <div class="sentiment-progress positive" style="width: 33%"></div>
+                  <div class="sentiment-progress neutral" style="width: 34%"></div>
+                  <div class="sentiment-progress negative" style="width: 33%"></div>
+                </div>
+                <div class="sentiment-legend">
+                  <span>Positive: <strong id="sentiment-pos-val">0</strong></span>
+                  <span>Neutral: <strong id="sentiment-neu-val">0</strong></span>
+                  <span>Negative: <strong id="sentiment-neg-val">0</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="top-assets-box">
+              <h3>Hot Assets Mentioned</h3>
+              <ul class="top-assets-list" id="hot-assets-list">
+                <li class="text-muted small">Waiting for news metrics...</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= RECOMMENDATIONS TAB ================= -->
+      <section id="tab-recommendations" class="tab-content">
+        <div class="section-header">
+          <h2>AI Asset Recommendations</h2>
+          <p class="section-sub">Get on-demand trading strategies and 7-day target metrics using active market data, indicators, and media sentiment.</p>
+        </div>
+        <div class="recommendations-container" id="recommendations-deck">
+          <!-- Rendered dynamically -->
+          <p class="text-muted" style="padding: 20px 0;">Select your assets and request a customized analysis to generate recommendations.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= ADD ASSET MODAL ================= -->
+  <div class="modal-overlay" id="add-asset-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Position to Portfolio</h3>
+        <button class="close-btn" id="close-add-asset-btn">&times;</button>
+      </div>
+      <form id="add-asset-form">
+        <div class="form-group">
+          <label for="asset-name">Asset Name</label>
+          <input type="text" id="asset-name" placeholder="e.g. Bitcoin" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="asset-type">Asset Type</label>
+            <select id="asset-type" required>
+              <option value="CRYPTO">Crypto</option>
+              <option value="METAL">Precious Metal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="asset-symbol">Symbol</label>
+            <input type="text" id="asset-symbol" placeholder="e.g. BTC" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="asset-amount">Holdings (Amount)</label>
+            <input type="number" id="asset-amount" step="any" min="0" placeholder="e.g. 0.05" required>
+          </div>
+          <div class="form-group">
+            <label for="asset-price">Buying Price ($)</label>
+            <input type="number" id="asset-price" step="any" min="0" placeholder="e.g. 58200" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancel-add-asset-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Position</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= UPDATE ASSET MODAL ================= -->
+  <div class="modal-overlay" id="update-asset-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Update Position</h3>
+        <button class="close-btn" id="close-update-asset-btn">&times;</button>
+      </div>
+      <form id="update-asset-form">
+        <input type="hidden" id="update-asset-id">
+        <div class="form-group">
+          <label>Asset Position</label>
+          <div class="static-value" id="update-asset-name-static">Bitcoin (BTC)</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="update-asset-amount">Holdings (Optional)</label>
+            <input type="number" id="update-asset-amount" step="any" min="0" placeholder="Keep current or enter new amount">
+          </div>
+          <div class="form-group">
+            <label for="update-asset-price">Buying Price (Optional)</label>
+            <input type="number" id="update-asset-price" step="any" min="0" placeholder="Keep current or enter new buy price">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancel-update-asset-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

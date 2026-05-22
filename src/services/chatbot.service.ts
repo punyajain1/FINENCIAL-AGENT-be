@@ -7,33 +7,42 @@ export interface ChatMessage {
   role: 'USER' | 'ASSISTANT';
   message: string;
   sources?: string[];
-  confidence?: number;
   toolsUsed?: string[];
   searchQueries?: string[];
 }
 
 class ChatbotService {
   private genAI: GoogleGenAI;
-  private conversations: Map<string, { role: string; content: string }[]>;
 
   constructor() {
     this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
-    this.conversations = new Map();
-  }
-
-  private getConversation(conversationId: string): { role: string; content: string }[] {
-    if (!this.conversations.has(conversationId)) {
-      this.conversations.set(conversationId, []);
-    }
-    return this.conversations.get(conversationId)!;
   }
 
   async chat(conversationId: string, userMessage: string): Promise<ChatMessage> {
     try {
-      const conversation = this.getConversation(conversationId);
-      conversation.push({ role: 'user', content: userMessage });
+      // Fetch the last 10 messages from ChatHistory DB
+      const dbHistory = await prisma.chatHistory.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
 
-      const systemPrompt = `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
+      // Sort chronological ascending
+      const chronologicalHistory = dbHistory.reverse();
+
+      // Build contents array for multi-turn Gemini conversation
+      const contents = chronologicalHistory.map(msg => ({
+        role: msg.role === 'USER' ? 'user' : 'model',
+        parts: [{ text: msg.message }]
+      }));
+
+      // Add the new user message
+      contents.push({
+        role: 'user',
+        parts: [{ text: userMessage }]
+      });
+
+      const systemInstruction = `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
 Provide detailed, personalized investment guidance while always including appropriate risk warnings.
 
 Available functions:
@@ -48,23 +57,18 @@ Always provide:
 3. Market context
 4. Diversification suggestions`;
 
-      const contextMessages = conversation.slice(-10).map(m => 
-        `${m.role}: ${m.content}`
-      ).join('\n');
-      
-      const fullPrompt = `${systemPrompt}\n\nConversation history:\n${contextMessages}\n\nUser: ${userMessage}\n\nAssistant:`;
-
       const groundingTool = {
         googleSearch: {},
       };
 
       const requestConfig = {
+        systemInstruction,
         tools: [groundingTool],
       };
 
       const response = await this.genAI.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: fullPrompt,
+        contents: contents,
         config: requestConfig,
       });
 
@@ -96,8 +100,6 @@ Always provide:
         throw new Error('No response generated from AI');
       }
 
-      conversation.push({ role: 'assistant', content: assistantMessage });
-
       await Promise.all([
         prisma.chatHistory.create({
           data: {
@@ -112,7 +114,6 @@ Always provide:
             role: 'ASSISTANT',
             message: assistantMessage,
             sources: sources.length > 0 ? sources : undefined,
-            confidence: 0.85,
             toolsUsed: sources.length > 0 ? ['googleSearch'] : undefined,
           },
         }),
@@ -123,7 +124,6 @@ Always provide:
         message: assistantMessage,
         sources: sources.length > 0 ? sources : undefined,
         searchQueries: searchQueries.length > 0 ? searchQueries : undefined,
-        confidence: 0.85,
         toolsUsed: sources.length > 0 ? ['googleSearch'] : [],
       };
     } catch (error) {
@@ -144,7 +144,6 @@ Always provide:
         role: h.role,
         message: h.message,
         sources: h.sources || undefined,
-        confidence: h.confidence || undefined,
         toolsUsed: h.toolsUsed || undefined,
       }));
     } catch (error) {
@@ -153,9 +152,16 @@ Always provide:
     }
   }
 
-  clearMemory(conversationId: string): void {
-    this.conversations.delete(conversationId);
-    logger.info(`Cleared memory for conversation ${conversationId}`);
+  async clearMemory(conversationId: string): Promise<void> {
+    try {
+      await prisma.chatHistory.deleteMany({
+        where: { conversationId },
+      });
+      logger.info(`Cleared memory for conversation ${conversationId}`);
+    } catch (error) {
+      logger.error(`Failed to clear memory for conversation ${conversationId}:`, error);
+      throw new Error('Failed to clear conversation memory');
+    }
   }
 }
 
