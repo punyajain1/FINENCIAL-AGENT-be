@@ -86,12 +86,13 @@ const elements = {
   recommendationsDeck: document.getElementById('recommendations-deck'),
 };
 
-// --- HELPER FUNCTIONS ---
+const BACKEND_URL = 'https://finpilot-backend-api-production.up.railway.app';
+
 function getApiUrl(path) {
-  if (window.location.protocol === 'file:') {
-    return `https://finpilot-backend-api-production.up.railway.app`;
+  if (window.location.hostname === 'finpilot-backend-api-production.up.railway.app') {
+    return path;
   }
-  return path;
+  return `${BACKEND_URL}${path}`;
 }
 
 function generateUUID() {
@@ -569,11 +570,12 @@ elements.clearChatBtn.addEventListener('click', async () => {
 // --- REAL-TIME WEBSOCKET NEWS HUB ---
 function connectNewsWebSocket() {
   let wsUrl;
-  if (window.location.protocol === 'file:') {
-    wsUrl = 'ws://localhost:3000/ws/news';
-  } else {
+  if (window.location.hostname === 'finpilot-backend-api-production.up.railway.app') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     wsUrl = `${protocol}//${window.location.host}/ws/news`;
+  } else {
+    // Connect to the remote Railway WebSocket server
+    wsUrl = 'wss://finpilot-backend-api-production.up.railway.app/ws/news';
   }
 
   if (state.wsConnection) {
