@@ -23,7 +23,7 @@ function checkLoadingStatus() {
     if (loader && !loader.classList.contains('fade-out')) {
       const statusText = document.getElementById('loading-status-text');
       if (statusText) statusText.textContent = 'Engines ready. Syncing interface...';
-      
+
       setTimeout(() => {
         loader.classList.add('fade-out');
       }, 600);
@@ -36,24 +36,24 @@ const elements = {
   // Navigation Tabs
   navTabs: document.querySelectorAll('.nav-tab'),
   tabContents: document.querySelectorAll('.tab-content'),
-  
+
   // WS Status
   wsIndicator: document.getElementById('ws-indicator'),
   wsStatusText: document.getElementById('ws-status-text'),
-  
+
   // Dashboard
   statTotalValue: document.getElementById('stat-total-value'),
   statTotalCost: document.getElementById('stat-total-cost'),
   statTotalPL: document.getElementById('stat-total-pl'),
   assetsList: document.getElementById('assets-list'),
   openAddAssetBtn: document.getElementById('open-add-asset-btn'),
-  
+
   // Modals - Add Position
   addAssetModal: document.getElementById('add-asset-modal'),
   closeAddAssetBtn: document.getElementById('close-add-asset-btn'),
   cancelAddAssetBtn: document.getElementById('cancel-add-asset-btn'),
   addAssetForm: document.getElementById('add-asset-form'),
-  
+
   // Modals - Update Position
   updateAssetModal: document.getElementById('update-asset-modal'),
   closeUpdateAssetBtn: document.getElementById('close-update-asset-btn'),
@@ -63,14 +63,14 @@ const elements = {
   updateAssetNameStatic: document.getElementById('update-asset-name-static'),
   updateAssetAmountInput: document.getElementById('update-asset-amount'),
   updateAssetPriceInput: document.getElementById('update-asset-price'),
-  
+
   // Chatbot
   chatForm: document.getElementById('chat-form'),
   chatInput: document.getElementById('chat-input'),
   chatHistoryBox: document.getElementById('chat-history-box'),
   sourcesContainer: document.getElementById('sources-container'),
   clearChatBtn: document.getElementById('clear-chat-btn'),
-  
+
   // News
   newsFeed: document.getElementById('news-feed'),
   triggerNewsFetchBtn: document.getElementById('trigger-news-fetch-btn'),
@@ -81,7 +81,7 @@ const elements = {
   sentimentProgressNeu: document.querySelector('.sentiment-progress.neutral'),
   sentimentProgressNeg: document.querySelector('.sentiment-progress.negative'),
   hotAssetsList: document.getElementById('hot-assets-list'),
-  
+
   // Recommendations
   recommendationsDeck: document.getElementById('recommendations-deck'),
 };
@@ -89,13 +89,13 @@ const elements = {
 // --- HELPER FUNCTIONS ---
 function getApiUrl(path) {
   if (window.location.protocol === 'file:') {
-    return `http://localhost:3000${path}`;
+    return `https://finpilot-backend-api-production.up.railway.app`;
   }
   return path;
 }
 
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -158,14 +158,14 @@ function setupTabs() {
     tab.addEventListener('click', () => {
       const targetTab = tab.getAttribute('data-tab');
       if (state.activeTab === targetTab) return;
-      
+
       // Update state
       state.activeTab = targetTab;
-      
+
       // Update nav class
       elements.navTabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      
+
       // Update content panels
       elements.tabContents.forEach(content => {
         if (content.id === `tab-${targetTab}`) {
@@ -174,7 +174,7 @@ function setupTabs() {
           content.classList.remove('active');
         }
       });
-      
+
       // Handle tab-specific activation logic
       if (targetTab === 'dashboard') {
         fetchPortfolio();
@@ -202,11 +202,11 @@ function setupModals() {
   });
   elements.closeAddAssetBtn.addEventListener('click', () => closeModal(elements.addAssetModal));
   elements.cancelAddAssetBtn.addEventListener('click', () => closeModal(elements.addAssetModal));
-  
+
   // Update Asset Modal Triggers
   elements.closeUpdateAssetBtn.addEventListener('click', () => closeModal(elements.updateAssetModal));
   elements.cancelUpdateAssetBtn.addEventListener('click', () => closeModal(elements.updateAssetModal));
-  
+
   // Close Modals on Outer Overlay Click
   window.addEventListener('click', (e) => {
     if (e.target === elements.addAssetModal) closeModal(elements.addAssetModal);
@@ -219,7 +219,7 @@ async function fetchPortfolio() {
   try {
     const res = await fetch(getApiUrl('/api/portfolio'));
     const result = await res.json();
-    
+
     if (result.success) {
       state.assets = result.data;
       updateSummaryStats(result.summary);
@@ -236,13 +236,13 @@ async function fetchPortfolio() {
 
 function updateSummaryStats(summary) {
   if (!summary) return;
-  
+
   elements.statTotalValue.textContent = formatCurrency(summary.totalCurrentValue);
   elements.statTotalCost.textContent = formatCurrency(summary.totalCost);
-  
+
   const plText = `${formatCurrency(summary.totalProfitLoss)} (${formatPercentage(summary.totalProfitLossPercentage)})`;
   elements.statTotalPL.textContent = plText;
-  
+
   // Handle profit colors
   elements.statTotalPL.className = 'summary-value';
   if (summary.totalProfitLoss > 0) {
@@ -261,15 +261,15 @@ function renderAssetsTable(assets) {
     `;
     return;
   }
-  
+
   elements.assetsList.innerHTML = assets.map(asset => {
     const isProfit = asset.profitLoss >= 0;
     const plClass = isProfit ? 'positive' : 'negative';
     const plSign = isProfit ? '+' : '';
-    const lastAnalyzed = asset.lastAnalyzedAt 
-      ? new Date(asset.lastAnalyzedAt).toLocaleString() 
+    const lastAnalyzed = asset.lastAnalyzedAt
+      ? new Date(asset.lastAnalyzedAt).toLocaleString()
       : 'Never';
-      
+
     return `
       <tr>
         <td><strong>${escapeHTML(asset.assetName)}</strong></td>
@@ -296,7 +296,7 @@ function renderAssetsTable(assets) {
 // Add position
 elements.addAssetForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const payload = {
     assetName: document.getElementById('asset-name').value.trim(),
     assetType: document.getElementById('asset-type').value,
@@ -304,7 +304,7 @@ elements.addAssetForm.addEventListener('submit', async (e) => {
     amount: document.getElementById('asset-amount').value,
     buyingPrice: document.getElementById('asset-price').value,
   };
-  
+
   try {
     const res = await fetch(getApiUrl('/api/portfolio/add'), {
       method: 'POST',
@@ -312,7 +312,7 @@ elements.addAssetForm.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     const result = await res.json();
-    
+
     if (result.success) {
       closeModal(elements.addAssetModal);
       fetchPortfolio();
@@ -325,7 +325,7 @@ elements.addAssetForm.addEventListener('submit', async (e) => {
 });
 
 // Trigger Update Modal (global function bound to window so onclick works)
-window.triggerUpdateAssetModal = function(id, name, symbol, amount, buyingPrice) {
+window.triggerUpdateAssetModal = function (id, name, symbol, amount, buyingPrice) {
   elements.updateAssetIdInput.value = id;
   elements.updateAssetNameStatic.textContent = `${name} (${symbol})`;
   elements.updateAssetAmountInput.value = amount;
@@ -336,16 +336,16 @@ window.triggerUpdateAssetModal = function(id, name, symbol, amount, buyingPrice)
 // Update position
 elements.updateAssetForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const id = elements.updateAssetIdInput.value;
   const payload = {};
-  
+
   const amt = elements.updateAssetAmountInput.value;
   const price = elements.updateAssetPriceInput.value;
-  
+
   if (amt !== '') payload.amount = amt;
   if (price !== '') payload.buyingPrice = price;
-  
+
   try {
     const res = await fetch(getApiUrl(`/api/portfolio/update/${id}`), {
       method: 'PUT',
@@ -353,7 +353,7 @@ elements.updateAssetForm.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     const result = await res.json();
-    
+
     if (result.success) {
       closeModal(elements.updateAssetModal);
       fetchPortfolio();
@@ -366,15 +366,15 @@ elements.updateAssetForm.addEventListener('submit', async (e) => {
 });
 
 // Delete position
-window.deleteAsset = async function(id) {
+window.deleteAsset = async function (id) {
   if (!confirm('Are you sure you want to remove this position from your portfolio?')) return;
-  
+
   try {
     const res = await fetch(getApiUrl(`/api/portfolio/remove/${id}`), {
       method: 'DELETE',
     });
     const result = await res.json();
-    
+
     if (result.success) {
       fetchPortfolio();
     } else {
@@ -390,7 +390,7 @@ async function fetchChatHistory() {
   try {
     const res = await fetch(getApiUrl(`/api/chat/history?conversationId=${state.conversationId}`));
     const result = await res.json();
-    
+
     if (result.success && result.data && result.data.messages) {
       renderChatHistory(result.data.messages);
     }
@@ -401,7 +401,7 @@ async function fetchChatHistory() {
 
 function renderChatHistory(messages) {
   if (!messages || messages.length === 0) return;
-  
+
   // Clear other than initial welcome message
   elements.chatHistoryBox.innerHTML = `
     <div class="chat-message assistant">
@@ -410,18 +410,18 @@ function renderChatHistory(messages) {
       </div>
     </div>
   `;
-  
+
   let allSources = [];
-  
+
   messages.forEach(msg => {
     const roleClass = msg.role === 'USER' ? 'user' : 'assistant';
     appendMessage(msg.message, roleClass, false);
-    
+
     if (msg.sources && msg.sources.length > 0) {
       allSources = msg.sources; // Keep latest sources
     }
   });
-  
+
   updateSourcesList(allSources);
   scrollToBottom(elements.chatHistoryBox);
 }
@@ -430,11 +430,11 @@ function appendMessage(text, role, animate = true) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-message ${role}`;
   if (animate) msgDiv.style.animation = 'fadeIn 0.25s ease';
-  
+
   const contentDiv = document.createElement('div');
   contentDiv.className = 'message-content';
   contentDiv.innerHTML = formatResponseText(text);
-  
+
   msgDiv.appendChild(contentDiv);
   elements.chatHistoryBox.appendChild(msgDiv);
   scrollToBottom(elements.chatHistoryBox);
@@ -465,15 +465,15 @@ function updateSourcesList(sources) {
     `;
     return;
   }
-  
+
   // Deduplicate and filter empty sources
   const uniqueSources = [...new Set(sources)].filter(Boolean);
-  
+
   elements.sourcesContainer.innerHTML = uniqueSources.map(url => {
     let hostName = url;
     try {
       hostName = new URL(url).hostname;
-    } catch (_) {}
+    } catch (_) { }
     return `<a href="${escapeHTML(url)}" target="_blank" class="source-item">${escapeHTML(hostName)} &rarr;</a>`;
   }).join('');
 }
@@ -485,19 +485,19 @@ function scrollToBottom(container) {
 // Send chat message
 elements.chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const userText = elements.chatInput.value.trim();
   if (!userText) return;
-  
+
   // Clear input
   elements.chatInput.value = '';
-  
+
   // Render user message instantly
   appendMessage(userText, 'user');
-  
+
   // Show AI thinking
   showThinkingIndicator();
-  
+
   try {
     const res = await fetch(getApiUrl('/api/chat'), {
       method: 'POST',
@@ -507,10 +507,10 @@ elements.chatForm.addEventListener('submit', async (e) => {
         conversationId: state.conversationId,
       }),
     });
-    
+
     const result = await res.json();
     removeThinkingIndicator();
-    
+
     if (result.success && result.data) {
       appendMessage(result.data.message, 'assistant');
       if (result.data.sources) {
@@ -529,22 +529,22 @@ elements.chatForm.addEventListener('submit', async (e) => {
 // Clear chat history
 elements.clearChatBtn.addEventListener('click', async () => {
   if (!confirm('Are you sure you want to delete your chat history? This cannot be undone.')) return;
-  
+
   elements.clearChatBtn.disabled = true;
   elements.clearChatBtn.textContent = 'Clearing...';
-  
+
   try {
     const res = await fetch(getApiUrl(`/api/chat/clear?conversationId=${state.conversationId}`), {
       method: 'DELETE',
     });
-    
+
     const result = await res.json();
     if (result.success) {
       // Completely erase trace by regenerating a new conversation ID locally as well
       const newId = generateUUID();
       localStorage.setItem('finpilot_conv_id', newId);
       state.conversationId = newId;
-      
+
       // Reset UI back to initial state
       elements.chatHistoryBox.innerHTML = `
         <div class="chat-message assistant">
@@ -575,15 +575,15 @@ function connectNewsWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     wsUrl = `${protocol}//${window.location.host}/ws/news`;
   }
-  
+
   if (state.wsConnection) {
     state.wsConnection.close();
   }
-  
+
   console.log(`Connecting news WS to: ${wsUrl}`);
   const ws = new WebSocket(wsUrl);
   state.wsConnection = ws;
-  
+
   ws.onopen = () => {
     console.log('News WebSocket connection established successfully');
     elements.wsIndicator.className = 'status-indicator online';
@@ -593,32 +593,32 @@ function connectNewsWebSocket() {
     state.isWsConnected = true;
     checkLoadingStatus();
   };
-  
+
   ws.onmessage = (event) => {
     try {
       const payload = JSON.parse(event.data);
       console.log('WS Message received:', payload.type);
-      
+
       switch (payload.type) {
         case 'initial_news':
           state.newsList = payload.data || [];
           renderNewsFeed(state.newsList);
           break;
-          
+
         case 'news_update':
           const newArticles = payload.data || [];
           state.newsList = [...newArticles, ...state.newsList].slice(0, 40); // Cap at 40
           renderNewsFeed(state.newsList);
           break;
-          
+
         case 'news_summary':
           renderSentimentAndHotAssets(payload.data);
           break;
-          
+
         case 'pong':
           // Heartbeat check if needed
           break;
-          
+
         default:
           break;
       }
@@ -626,12 +626,12 @@ function connectNewsWebSocket() {
       console.error('Error parsing WS news packet:', error);
     }
   };
-  
+
   ws.onclose = () => {
     console.warn('News WebSocket disconnected. Retrying connection...');
     elements.wsIndicator.className = 'status-indicator offline';
     elements.wsStatusText.textContent = 'Disconnected';
-    
+
     // Backoff reconnect
     if (state.wsReconnectTimer) clearTimeout(state.wsReconnectTimer);
     state.wsReconnectTimer = setTimeout(() => {
@@ -639,7 +639,7 @@ function connectNewsWebSocket() {
       connectNewsWebSocket();
     }, state.wsReconnectDelay);
   };
-  
+
   ws.onerror = (err) => {
     console.error('WebSocket connection error:', err);
     ws.close();
@@ -653,14 +653,14 @@ function renderNewsFeed(news) {
     `;
     return;
   }
-  
+
   elements.newsFeed.innerHTML = news.map(article => {
     const sentiment = article.sentiment || { label: 'neutral', score: 0 };
     const dateStr = new Date(article.publishedAt).toLocaleString();
-    const assetsText = (article.relatedAssets || []).map(asset => 
+    const assetsText = (article.relatedAssets || []).map(asset =>
       `<span class="tag asset">${escapeHTML(asset)}</span>`
     ).join(' ');
-    
+
     return `
       <div class="news-item">
         <div class="news-meta">
@@ -684,25 +684,25 @@ function renderNewsFeed(news) {
 
 function renderSentimentAndHotAssets(data) {
   if (!data) return;
-  
+
   const { sentimentBreakdown, topAssets } = data;
   if (sentimentBreakdown) {
     const posVal = sentimentBreakdown.positive || 0;
     const neuVal = sentimentBreakdown.neutral || 0;
     const negVal = sentimentBreakdown.negative || 0;
     const total = posVal + neuVal + negVal || 1;
-    
+
     // Set counters
     elements.sentimentPosVal.textContent = posVal;
     elements.sentimentNeuVal.textContent = neuVal;
     elements.sentimentNegVal.textContent = negVal;
-    
+
     // Set progress bars
     elements.sentimentProgressPos.style.width = `${(posVal / total) * 100}%`;
     elements.sentimentProgressNeu.style.width = `${(neuVal / total) * 100}%`;
     elements.sentimentProgressNeg.style.width = `${(negVal / total) * 100}%`;
   }
-  
+
   if (topAssets && topAssets.length > 0) {
     elements.hotAssetsList.innerHTML = topAssets.map(asset => `
       <li>
@@ -721,7 +721,7 @@ function renderSentimentAndHotAssets(data) {
 elements.triggerNewsFetchBtn.addEventListener('click', async () => {
   elements.triggerNewsFetchBtn.disabled = true;
   elements.triggerNewsFetchBtn.textContent = 'Fetching News...';
-  
+
   try {
     const res = await fetch(getApiUrl('/api/news/trigger-fetch'), { method: 'POST' });
     const result = await res.json();
@@ -749,7 +749,7 @@ function renderRecommendationsPage() {
     `;
     return;
   }
-  
+
   // Render an empty card / loader outline for each asset
   elements.recommendationsDeck.innerHTML = state.assets.map(asset => {
     return `
@@ -771,19 +771,19 @@ function renderRecommendationsPage() {
   }).join('');
 }
 
-window.runSingleAssetAnalysis = async function(id) {
+window.runSingleAssetAnalysis = async function (id) {
   const btn = document.getElementById(`btn-analyze-${id}`);
   const bodyDiv = document.getElementById(`rec-body-${id}`);
   const dateSpan = document.getElementById(`last-analyzed-${id}`);
-  
+
   if (!btn || !bodyDiv) return;
-  
+
   btn.disabled = true;
   btn.textContent = 'Analysing Data Streams...';
-  
+
   // Helper to wait
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-  
+
   // Step definitions
   const steps = [
     { num: 1, title: 'Syncing Live Asset Quotes', desc: 'Fetching precious metals pricing (Gold API v2) and active crypto WebSocket feeds...' },
@@ -832,7 +832,7 @@ window.runSingleAssetAnalysis = async function(id) {
         row.classList.add('active');
         if (iconSpan) iconSpan.innerHTML = '<span class="step-spinner"></span>';
       }
-      
+
       if (i < 4) {
         // First 3 steps take ~1.2s each
         await delay(1200);
@@ -862,15 +862,15 @@ window.runSingleAssetAnalysis = async function(id) {
       const data = fetchResult.data;
       const act = data.action.toLowerCase(); // buy, hold, sell
       const actionLabel = data.action; // BUY, HOLD, SELL
-      
+
       // Update last analyzed timestamp locally
       const nowStr = new Date().toLocaleString();
       if (dateSpan) dateSpan.textContent = nowStr;
-      
+
       // Update recommendation body with premium fade-in style
       bodyDiv.style.opacity = 0;
       bodyDiv.style.transition = 'opacity 0.5s ease';
-      
+
       bodyDiv.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
           <div>
@@ -957,7 +957,7 @@ window.runSingleAssetAnalysis = async function(id) {
           </div>
         </div>
       `;
-      
+
       // Trigger fade in
       setTimeout(() => {
         bodyDiv.style.opacity = 1;
@@ -980,15 +980,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Conversation session
   state.conversationId = getConversationId();
   console.log(`Initialized FinPilot Session: ${state.conversationId}`);
-  
+
   // Set up Tabs & Modals
   setupTabs();
   setupModals();
-  
+
   // Load Initial Data
   fetchPortfolio();
   fetchChatHistory();
-  
+
   // Connect news streams WebSocket
   connectNewsWebSocket();
 
