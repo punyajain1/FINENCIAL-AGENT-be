@@ -1,6 +1,6 @@
 # FinPilot — Technical Systems Architecture & Operations Guide
 
-Welcome to the comprehensive technical documentation for **FinPilot**, an advanced, dark-minimalist, real-time AI-powered financial advisor and technical analysis asset platform.
+Welcome to the comprehensive technical documentation for **FinPilot**, an advanced, real time AI-powered financial advisor and technical analysis asset platform.
 
 This guide outlines the system's runtime architecture, custom analytical equations, standby resource-management designs, and deployment configurations.
 

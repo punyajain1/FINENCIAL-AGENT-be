@@ -20,7 +20,6 @@ export const config = {
     newsApi: process.env.NEWS_API_KEY || '',
     gnews: process.env.GNEWS_API_KEY || '',
     currentsApi: process.env.CURRENTS_API_KEY || '',
-    coinGecko: process.env.COINGECKO_API_KEY || '',
   },
 
   cache: {
@@ -38,7 +37,7 @@ export const config = {
   },
 
   apis: {
-    coinGecko: 'https://api.coingecko.com/api/v3',
+    binance: 'https://api.binance.com',  // Free, no API key needed, 1200 req/min
     goldApi: 'https://api.gold-api.com',
     newsApi: 'https://newsapi.org/v2',
     gnews: 'https://gnews.io/api/v4',
