@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 import { config, validateConfig } from './config/config';
 import { logger } from './utils/logger';
 import routes from './routes/index';
@@ -129,12 +130,7 @@ process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
 
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Trading Agent API',
-    version: '1.0.0',
-    documentation: '/api/health',
-  });
+  res.sendFile(path.resolve('public/index.html'));
 });
 
 // Trigger nodemon reload for .env configuration updates.
