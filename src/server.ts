@@ -22,31 +22,39 @@ try {
 const app: Application = express();
 const httpServer = createServer(app);
 
-const isLocalhost = (origin: string) => {
-  return (
+const isAllowedOrigin = (origin: string): boolean => {
+  // Allow any localhost for local development
+  if (
     origin.startsWith('http://localhost:') ||
     origin.startsWith('http://127.0.0.1:') ||
     origin.startsWith('https://localhost:') ||
     origin.startsWith('https://127.0.0.1:')
-  );
+  ) return true;
+
+  // Allow any Vercel deployment URL (*.vercel.app)
+  if (origin.endsWith('.vercel.app')) return true;
+
+  // Allow Railway backend itself (for health checks / same-origin)
+  if (origin.includes('railway.app')) return true;
+
+  // Allow explicitly configured origin from env
+  if (origin === config.cors.origin) return true;
+
+  return false;
 };
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) {
+    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+    if (!origin || origin === 'null') {
       return callback(null, true);
     }
-    
-    if (
-      origin === 'null' ||
-      origin === config.cors.origin ||
-      isLocalhost(origin)
-    ) {
+
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    
-    callback(new Error('Not allowed by CORS'));
+
+    callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
 }));
