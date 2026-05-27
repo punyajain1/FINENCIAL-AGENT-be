@@ -15,13 +15,12 @@ export const config = {
   },
 
   apiKeys: {
-    gemini: process.env.GEMINI_API_KEY || '',
+    groq: process.env.GROQ_API_KEY || '',
     huggingface: process.env.HUGGINGFACE_API_KEY || '',
     newsApi: process.env.NEWS_API_KEY || '',
     gnews: process.env.GNEWS_API_KEY || '',
     currentsApi: process.env.CURRENTS_API_KEY || '',
     coinGecko: process.env.COINGECKO_API_KEY || '',
-    goldApi: process.env.GOLD_API_KEY || '',
   },
 
   cache: {
@@ -40,7 +39,7 @@ export const config = {
 
   apis: {
     coinGecko: 'https://api.coingecko.com/api/v3',
-    goldApi: 'https://www.goldapi.io/api',
+    goldApi: 'https://api.gold-api.com',
     newsApi: 'https://newsapi.org/v2',
     gnews: 'https://gnews.io/api/v4',
     currentsApi: 'https://api.currentsapi.services/v1',
@@ -50,9 +49,8 @@ export const config = {
 
 export function validateConfig(): void {
   const requiredKeys = [
-    'GEMINI_API_KEY',
+    'GROQ_API_KEY',
     'HUGGINGFACE_API_KEY',
-    'GOLD_API_KEY',
   ];
 
   const missingKeys: string[] = [];

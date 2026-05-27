@@ -57,3 +57,29 @@ export const getChatHistory = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const clearChat = async (req: Request, res: Response) => {
+  try {
+    const { conversationId } = req.query;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        success: false,
+        error: 'conversationId is required',
+      });
+    }
+
+    await chatbotService.clearMemory(conversationId as string);
+
+    res.json({
+      success: true,
+      message: 'Chat history cleared successfully',
+    });
+  } catch (error) {
+    logger.error('Clear chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear chat history',
+    });
+  }
+};

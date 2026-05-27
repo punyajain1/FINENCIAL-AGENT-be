@@ -4,12 +4,22 @@ import { logger } from '../utils/logger';
 import { NewsArticle } from './news.service';
 import prisma from '../config/database';
 
+export type ClientConnectCallback = () => void;
+
 /**
  * WebSocket service for real-time news updates
  */
 class WebSocketService {
   private wss: WebSocketServer | null = null;
   private clients: Set<WebSocket> = new Set();
+  private connectionCallbacks: ClientConnectCallback[] = [];
+
+  /**
+   * Register a callback to fire when a new client connects
+   */
+  onConnect(callback: ClientConnectCallback): void {
+    this.connectionCallbacks.push(callback);
+  }
 
   /**
    * Initialize WebSocket server
@@ -20,6 +30,15 @@ class WebSocketService {
     this.wss.on('connection', async (ws: WebSocket) => {
       logger.info('New WebSocket client connected');
       this.clients.add(ws);
+
+      // Trigger connection callbacks asynchronously
+      this.connectionCallbacks.forEach(cb => {
+        try {
+          cb();
+        } catch (err) {
+          logger.error('Error running websocket connection callback:', err);
+        }
+      });
 
       // Send welcome message
       this.sendToClient(ws, {

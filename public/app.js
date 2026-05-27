@@ -12,7 +12,24 @@ const state = {
   wsReconnectTimer: null,
   wsReconnectDelay: 2000,
   wsMaxReconnectDelay: 30000,
+  isPortfolioLoaded: false,
+  isWsConnected: false,
 };
+
+// Dismiss loading screen when both WebSocket and portfolio are synced
+function checkLoadingStatus() {
+  if (state.isPortfolioLoaded && state.isWsConnected) {
+    const loader = document.getElementById('app-loading-screen');
+    if (loader && !loader.classList.contains('fade-out')) {
+      const statusText = document.getElementById('loading-status-text');
+      if (statusText) statusText.textContent = 'Engines ready. Syncing interface...';
+      
+      setTimeout(() => {
+        loader.classList.add('fade-out');
+      }, 600);
+    }
+  }
+}
 
 // --- DOM ELEMENTS ---
 const elements = {
@@ -52,6 +69,7 @@ const elements = {
   chatInput: document.getElementById('chat-input'),
   chatHistoryBox: document.getElementById('chat-history-box'),
   sourcesContainer: document.getElementById('sources-container'),
+  clearChatBtn: document.getElementById('clear-chat-btn'),
   
   // News
   newsFeed: document.getElementById('news-feed'),
@@ -206,6 +224,8 @@ async function fetchPortfolio() {
       state.assets = result.data;
       updateSummaryStats(result.summary);
       renderAssetsTable(result.data);
+      state.isPortfolioLoaded = true;
+      checkLoadingStatus();
     } else {
       console.error('Failed to retrieve portfolio data:', result.error);
     }
@@ -386,7 +406,7 @@ function renderChatHistory(messages) {
   elements.chatHistoryBox.innerHTML = `
     <div class="chat-message assistant">
       <div class="message-content">
-        Hello, I am FinPilot, your AI financial advisor. How can I help you analyze cryptocurrencies, precious metals, or your current portfolio holds today?
+        Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
       </div>
     </div>
   `;
@@ -506,6 +526,46 @@ elements.chatForm.addEventListener('submit', async (e) => {
   }
 });
 
+// Clear chat history
+elements.clearChatBtn.addEventListener('click', async () => {
+  if (!confirm('Are you sure you want to delete your chat history? This cannot be undone.')) return;
+  
+  elements.clearChatBtn.disabled = true;
+  elements.clearChatBtn.textContent = 'Clearing...';
+  
+  try {
+    const res = await fetch(getApiUrl(`/api/chat/clear?conversationId=${state.conversationId}`), {
+      method: 'DELETE',
+    });
+    
+    const result = await res.json();
+    if (result.success) {
+      // Completely erase trace by regenerating a new conversation ID locally as well
+      const newId = generateUUID();
+      localStorage.setItem('finpilot_conv_id', newId);
+      state.conversationId = newId;
+      
+      // Reset UI back to initial state
+      elements.chatHistoryBox.innerHTML = `
+        <div class="chat-message assistant">
+          <div class="message-content">
+            Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
+          </div>
+        </div>
+      `;
+      updateSourcesList([]);
+    } else {
+      alert(`Error: ${result.error || 'Failed to clear chat history'}`);
+    }
+  } catch (error) {
+    console.error('Error clearing chat:', error);
+    alert('Failed to connect to backend server to clear chat.');
+  } finally {
+    elements.clearChatBtn.disabled = false;
+    elements.clearChatBtn.textContent = 'Clear Chat';
+  }
+});
+
 // --- REAL-TIME WEBSOCKET NEWS HUB ---
 function connectNewsWebSocket() {
   let wsUrl;
@@ -530,6 +590,8 @@ function connectNewsWebSocket() {
     elements.wsStatusText.textContent = 'Connected';
     state.wsReconnectDelay = 2000; // Reset delay
     if (state.wsReconnectTimer) clearTimeout(state.wsReconnectTimer);
+    state.isWsConnected = true;
+    checkLoadingStatus();
   };
   
   ws.onmessage = (event) => {
@@ -717,60 +779,177 @@ window.runSingleAssetAnalysis = async function(id) {
   if (!btn || !bodyDiv) return;
   
   btn.disabled = true;
-  btn.textContent = 'Analyzing...';
+  btn.textContent = 'Analysing Data Streams...';
   
-  // Render typing indicator on card
+  // Helper to wait
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Step definitions
+  const steps = [
+    { num: 1, title: 'Syncing Live Asset Quotes', desc: 'Fetching precious metals pricing (Gold API v2) and active crypto WebSocket feeds...' },
+    { num: 2, title: 'NLP News Sentiment Scanning', desc: 'Crawling recent media articles and classifying sentiment using HuggingFace FinBERT...' },
+    { num: 3, title: 'Calculating Technical Indicators', desc: 'Scanning price action histories to compute active RSI, MACD, and EMA support metrics...' },
+    { num: 4, title: 'Groq Llama-3.3 Synthesis', desc: 'Invoking the Groq 70B cognitive optimizer to formulate trading targets and strategies...' }
+  ];
+
+  // Render initial stepper HTML
   bodyDiv.innerHTML = `
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 120px;">
-      <div class="chat-bubble-thinking">
-        <span></span><span></span><span></span>
-      </div>
+    <div class="analysis-stepper">
+      ${steps.map(s => `
+        <div class="step-row" id="step-${s.num}-${id}">
+          <div class="step-indicator">${s.num}</div>
+          <div class="step-content">
+            <span class="step-title">${s.title} <span class="step-status-icon" id="step-icon-${s.num}-${id}"></span></span>
+            <span class="step-desc">${s.desc}</span>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
-  
-  try {
-    const res = await fetch(getApiUrl(`/api/portfolio/analyze/${id}`), {
-      method: 'POST',
+
+  let fetchCompleted = false;
+  let fetchResult = null;
+  let fetchError = null;
+
+  // Fire background API call
+  const apiPromise = fetch(getApiUrl(`/api/portfolio/analyze/${id}`), { method: 'POST' })
+    .then(async res => {
+      const data = await res.json();
+      fetchCompleted = true;
+      fetchResult = data;
+    })
+    .catch(err => {
+      fetchCompleted = true;
+      fetchError = err;
     });
-    const result = await res.json();
-    
-    if (result.success && result.data) {
-      const data = result.data;
+
+  try {
+    // Sequence through step highlights
+    for (let i = 1; i <= 4; i++) {
+      const row = document.getElementById(`step-${i}-${id}`);
+      const iconSpan = document.getElementById(`step-icon-${i}-${id}`);
+      if (row) {
+        row.classList.add('active');
+        if (iconSpan) iconSpan.innerHTML = '<span class="step-spinner"></span>';
+      }
+      
+      if (i < 4) {
+        // First 3 steps take ~1.2s each
+        await delay(1200);
+        if (row) {
+          row.classList.remove('active');
+          row.classList.add('completed');
+        }
+        if (iconSpan) iconSpan.innerHTML = ' <span style="color: var(--accent-green); font-weight: bold; margin-left: 6px;">✔</span>';
+      } else {
+        // Step 4: Wait for both simulation timeline AND background fetch to finish
+        const simulationMinTime = delay(1200);
+        while (!fetchCompleted) {
+          await delay(150);
+        }
+        await simulationMinTime; // ensure we animate step 4 for at least 1.2s
+        if (row) {
+          row.classList.remove('active');
+          row.classList.add('completed');
+        }
+        if (iconSpan) iconSpan.innerHTML = ' <span style="color: var(--accent-green); font-weight: bold; margin-left: 6px;">✔</span>';
+        await delay(500); // Breathe
+      }
+    }
+
+    // Now render final payload
+    if (fetchResult && fetchResult.success && fetchResult.data) {
+      const data = fetchResult.data;
       const act = data.action.toLowerCase(); // buy, hold, sell
       const actionLabel = data.action; // BUY, HOLD, SELL
       
       // Update last analyzed timestamp locally
       const nowStr = new Date().toLocaleString();
-      dateSpan.textContent = nowStr;
+      if (dateSpan) dateSpan.textContent = nowStr;
       
-      // Update recommendation body
+      // Update recommendation body with premium fade-in style
+      bodyDiv.style.opacity = 0;
+      bodyDiv.style.transition = 'opacity 0.5s ease';
+      
       bodyDiv.innerHTML = `
-        <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
           <div>
             <span class="rec-action-badge ${act}">${escapeHTML(actionLabel)}</span>
             <span style="margin-left: 12px; font-size: 13px;" class="text-muted">Confidence Score: <strong>${data.confidence}%</strong></span>
           </div>
           
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 12px 0;">
-            <div class="summary-card" style="padding: 12px 16px; background-color: rgba(255,255,255,0.01);">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 8px 0;">
+            <div class="summary-card" style="padding: 12px 16px;">
               <span class="summary-label" style="font-size: 10px;">7D Price Target</span>
               <span style="font-size: 16px;" class="summary-value">${data.priceTarget ? formatCurrency(data.priceTarget) : 'N/A'}</span>
             </div>
-            <div class="summary-card" style="padding: 12px 16px; background-color: rgba(255,255,255,0.01);">
+            <div class="summary-card" style="padding: 12px 16px;">
               <span class="summary-label" style="font-size: 10px;">Risk Profile</span>
               <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.riskLevel)}</span>
             </div>
-            <div class="summary-card" style="padding: 12px 16px; background-color: rgba(255,255,255,0.01);">
+            <div class="summary-card" style="padding: 12px 16px;">
               <span class="summary-label" style="font-size: 10px;">7D Price Change</span>
               <span style="font-size: 16px; color: ${data.priceChange7d >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}" class="summary-value">${formatPercentage(data.priceChange7d)}</span>
             </div>
-            <div class="summary-card" style="padding: 12px 16px; background-color: rgba(255,255,255,0.01);">
+            <div class="summary-card" style="padding: 12px 16px;">
               <span class="summary-label" style="font-size: 10px;">Media Sentiment</span>
               <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.sentimentLabel)} (${(data.sentimentScore * 100).toFixed(0)}%)</span>
             </div>
           </div>
+
+          <!-- Advanced Technical Indicators Panel -->
+          <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+            <h4 style="margin-bottom: 12px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Advanced Technical Indicators (30-Day Calculations)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+              
+              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">RSI (14-period)</div>
+                <div style="font-size: 13px; font-weight: 500;">
+                  ${data.rsi !== undefined ? data.rsi : 'N/A'}
+                  <span class="tag ${data.rsiSignal === 'BUY' ? 'positive' : data.rsiSignal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 6px;">
+                    ${data.rsiSignal || 'NEUTRAL'}
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">MACD (12/26/9 EMA)</div>
+                <div style="font-size: 13px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
+                  <span>Line: ${data.macd?.macdLine ?? 'N/A'} | Signal: ${data.macd?.signalLine ?? 'N/A'}</span>
+                  <span style="font-size: 11px; color: var(--text-muted);">
+                    Hist: ${data.macd?.histogram ?? 'N/A'}
+                    <span class="tag ${data.macd?.signal === 'BUY' ? 'positive' : data.macd?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
+                      ${data.macd?.signal || 'NEUTRAL'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">Bollinger Bands (20-period)</div>
+                <div style="font-size: 12px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
+                  <span>Upper: ${data.bollingerBands?.upper ? formatCurrency(data.bollingerBands.upper) : 'N/A'}</span>
+                  <span>Lower: ${data.bollingerBands?.lower ? formatCurrency(data.bollingerBands.lower) : 'N/A'}</span>
+                  <span style="font-size: 11px; color: var(--text-muted);">
+                    BB Signal: 
+                    <span class="tag ${data.bollingerBands?.signal === 'BUY' ? 'positive' : data.bollingerBands?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
+                      ${data.bollingerBands?.signal || 'NEUTRAL'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">On-Balance Volume (OBV)</div>
+                <div style="font-size: 13px; font-weight: 500;">
+                  ${data.obv !== undefined ? new Intl.NumberFormat('en-US').format(data.obv) : 'N/A'}
+                </div>
+              </div>
+
+            </div>
+          </div>
           
-          <div>
+          <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
             <h4 style="margin-bottom: 8px;">Analytical Reasoning</h4>
             <ul class="rec-reasoning-list">
               ${(data.reasoning || []).map(reason => `<li>${escapeHTML(reason)}</li>`).join('')}
@@ -778,8 +957,14 @@ window.runSingleAssetAnalysis = async function(id) {
           </div>
         </div>
       `;
+      
+      // Trigger fade in
+      setTimeout(() => {
+        bodyDiv.style.opacity = 1;
+      }, 50);
     } else {
-      bodyDiv.innerHTML = `<p class="text-muted small" style="padding: 30px 0; text-align: center; color: var(--accent-red) !important;">Failed to complete analysis: ${escapeHTML(result.error || 'Server error')}</p>`;
+      const errMessage = (fetchResult && fetchResult.error) ? fetchResult.error : 'Server error';
+      bodyDiv.innerHTML = `<p class="text-muted small" style="padding: 30px 0; text-align: center; color: var(--accent-red) !important;">Failed to complete analysis: ${escapeHTML(errMessage)}</p>`;
     }
   } catch (error) {
     console.error('Error analyzing asset:', error);
@@ -806,4 +991,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Connect news streams WebSocket
   connectNewsWebSocket();
+
+  // Maximum loading safety timeout of 6 seconds to fade out loader in case of server failures
+  setTimeout(() => {
+    const loader = document.getElementById('app-loading-screen');
+    if (loader && !loader.classList.contains('fade-out')) {
+      console.warn('Loading safety timeout reached. Dismissing loading overlay.');
+      loader.classList.add('fade-out');
+    }
+  }, 6000);
 });

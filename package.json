@@ -1,7 +1,7 @@
 {
   "name": "finencial-adviser",
   "version": "1.0.0",
-  "description": "AI-powered finencial adviser for cryptocurrencies and precious metals using Google Gemini AI",
+  "description": "AI-powered financial adviser for cryptocurrencies and precious metals using Groq AI",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
@@ -16,12 +16,11 @@
     "ai",
     "crypto",
     "metals",
-    "gemini"
+    "groq"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@huggingface/inference": "^4.13.2",
     "@types/ws": "^8.18.1",
     "axios": "^1.6.2",
@@ -30,6 +29,7 @@
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
+    "groq-sdk": "^0.9.1",
     "joi": "^17.11.0",
     "node-cron": "^3.0.3",
     "uuid": "^9.0.1",

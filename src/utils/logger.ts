@@ -14,7 +14,25 @@ const consoleFormat = winston.format.combine(
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let msg = `${timestamp} [${level}]: ${message}`;
     if (Object.keys(meta).length > 0) {
-      msg += ` ${JSON.stringify(meta)}`;
+      try {
+        msg += ` ${JSON.stringify(meta)}`;
+      } catch (e) {
+        const safeMeta: Record<string, any> = {};
+        for (const [key, value] of Object.entries(meta)) {
+          if (value instanceof Error) {
+            safeMeta[key] = {
+              message: value.message,
+              stack: value.stack
+            };
+          } else if (typeof value === 'object' && value !== null) {
+            // Safe copy of simple fields or fallback
+            safeMeta[key] = '[Circular/Complex Object]';
+          } else {
+            safeMeta[key] = value;
+          }
+        }
+        msg += ` ${JSON.stringify(safeMeta)}`;
+      }
     }
     return msg;
   })

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import prisma from '../config/database';
@@ -12,10 +12,11 @@ export interface ChatMessage {
 }
 
 class ChatbotService {
-  private genAI: GoogleGenAI;
+  private groq: Groq;
+  private model = 'llama-3.3-70b-versatile';
 
   constructor() {
-    this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
+    this.groq = new Groq({ apiKey: config.apiKeys.groq });
   }
 
   async chat(conversationId: string, userMessage: string): Promise<ChatMessage> {
@@ -30,19 +31,11 @@ class ChatbotService {
       // Sort chronological ascending
       const chronologicalHistory = dbHistory.reverse();
 
-      // Build contents array for multi-turn Gemini conversation
-      const contents = chronologicalHistory.map(msg => ({
-        role: msg.role === 'USER' ? 'user' : 'model',
-        parts: [{ text: msg.message }]
-      }));
-
-      // Add the new user message
-      contents.push({
-        role: 'user',
-        parts: [{ text: userMessage }]
-      });
-
-      const systemInstruction = `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
+      // Build messages array for multi-turn Groq conversation
+      const messages: Groq.Chat.ChatCompletionMessageParam[] = [
+        {
+          role: 'system',
+          content: `You are an expert investment advisor specializing in cryptocurrencies and precious metals. 
 Provide detailed, personalized investment guidance while always including appropriate risk warnings.
 
 Available functions:
@@ -55,50 +48,35 @@ Always provide:
 1. Clear, actionable advice
 2. Risk assessments
 3. Market context
-4. Diversification suggestions`;
+4. Diversification suggestions`,
+        },
+      ];
 
-      const groundingTool = {
-        googleSearch: {},
-      };
-
-      const requestConfig = {
-        systemInstruction,
-        tools: [groundingTool],
-      };
-
-      const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: contents,
-        config: requestConfig,
-      });
-
-      const assistantMessage = response.text;
-
-      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-      const sources: string[] = [];
-      const searchQueries: string[] = [];
-
-      if (groundingMetadata) {
-        if (groundingMetadata.webSearchQueries) {
-          searchQueries.push(...groundingMetadata.webSearchQueries);
-          logger.info(`Search queries used: ${searchQueries.join(', ')}`);
-        }
-
-        if (groundingMetadata.groundingChunks) {
-          groundingMetadata.groundingChunks.forEach((chunk: any) => {
-            if (chunk.uri) {
-              sources.push(chunk.uri);
-            }
-          });
-          logger.info(`Sources used: ${sources.length} web pages`);
-        }
+      // Append conversation history
+      for (const msg of chronologicalHistory) {
+        messages.push({
+          role: msg.role === 'USER' ? 'user' : 'assistant',
+          content: msg.message,
+        });
       }
 
-      logger.info(`Chat response generated with Google Search grounding`);
+      // Add the new user message
+      messages.push({ role: 'user', content: userMessage });
+
+      const completion = await this.groq.chat.completions.create({
+        model: this.model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2048,
+      });
+
+      const assistantMessage = completion.choices[0]?.message?.content;
 
       if (!assistantMessage) {
         throw new Error('No response generated from AI');
       }
+
+      logger.info('Chat response generated via Groq');
 
       await Promise.all([
         prisma.chatHistory.create({
@@ -113,8 +91,6 @@ Always provide:
             conversationId,
             role: 'ASSISTANT',
             message: assistantMessage,
-            sources: sources.length > 0 ? sources : undefined,
-            toolsUsed: sources.length > 0 ? ['googleSearch'] : undefined,
           },
         }),
       ]);
@@ -122,9 +98,7 @@ Always provide:
       return {
         role: 'ASSISTANT',
         message: assistantMessage,
-        sources: sources.length > 0 ? sources : undefined,
-        searchQueries: searchQueries.length > 0 ? searchQueries : undefined,
-        toolsUsed: sources.length > 0 ? ['googleSearch'] : [],
+        toolsUsed: [],
       };
     } catch (error) {
       logger.error('Chat error:', error);

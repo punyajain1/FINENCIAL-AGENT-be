@@ -12,6 +12,18 @@
 </head>
 <body>
 
+  <!-- Premium Glassmorphic Loading Screen -->
+  <div id="app-loading-screen" class="loading-overlay">
+    <div class="loading-card">
+      <div class="logo" style="margin-bottom: 24px; font-size: 24px; text-align: center; letter-spacing: 3px;">FINPILOT</div>
+      <div class="loading-spinner-container">
+        <div class="loading-pulse"></div>
+      </div>
+      <div class="loading-text" id="loading-status-text">Waking up cognitive grounding engines...</div>
+      <div class="loading-subtext">FinPilot is establishing secure connections to active market rates and media sentiment feeds. This may take a few seconds on first boot.</div>
+    </div>
+  </div>
+
   <!-- App Shell -->
   <div class="app-container">
     
@@ -86,21 +98,32 @@
             <div class="chat-history" id="chat-history-box">
               <div class="chat-message assistant">
                 <div class="message-content">
-                  Hello, I am FinPilot, your AI financial advisor. How can I help you analyze cryptocurrencies, precious metals, or your current portfolio holds today?
+                  Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
                 </div>
               </div>
             </div>
             
             <form class="chat-input-form" id="chat-form">
               <input type="text" id="chat-input" placeholder="Ask about markets, trends, or asset allocation..." required autocomplete="off">
+              <button type="button" class="btn btn-secondary" id="clear-chat-btn">Clear Chat</button>
               <button type="submit" class="btn btn-secondary">Send</button>
             </form>
           </div>
           
           <div class="chat-sidebar">
-            <h3>Grounding Sources</h3>
+            <h3>FinPilot Ingestion Engine</h3>
+            <div style="margin-bottom: 24px; font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+              <span style="display: block; margin-bottom: 8px; font-weight: 500;">Active Grounding Pipelines:</span>
+              <ul style="padding-left: 12px; list-style: none; display: flex; flex-direction: column; gap: 6px;">
+                <li><span style="color: var(--accent-blue); margin-right: 6px;">✔</span> HuggingFace Sentiment API</li>
+                <li><span style="color: var(--accent-blue); margin-right: 6px;">✔</span> Gold & Metals Rate Engine</li>
+                <li><span style="color: var(--accent-blue); margin-right: 6px;">✔</span> Active News Analytics Feed</li>
+                <li><span style="color: var(--accent-blue); margin-right: 6px;">✔</span> User Portfolio Database</li>
+              </ul>
+            </div>
+            <h3>Verified Data Sources</h3>
             <div id="sources-container" class="sources-list">
-              <p class="text-muted small">Sources and references used by the AI to answer your queries will appear here.</p>
+              <p class="text-muted small">Verified source links crawled by Groq Llama-3.3 during chat turns will appear here.</p>
             </div>
           </div>
         </div>
@@ -146,9 +169,38 @@
       <!-- ================= RECOMMENDATIONS TAB ================= -->
       <section id="tab-recommendations" class="tab-content">
         <div class="section-header">
-          <h2>AI Asset Recommendations</h2>
-          <p class="section-sub">Get on-demand trading strategies and 7-day target metrics using active market data, indicators, and media sentiment.</p>
+          <div>
+            <h2>AI Asset Recommendations</h2>
+            <p class="section-sub">Get on-demand trading strategies and 7-day target metrics using active market data, indicators, and media sentiment.</p>
+          </div>
         </div>
+
+        <!-- AI Engine & Sentiment Scanner HUD Banner -->
+        <div class="ai-hud-container">
+          <div class="hud-header">
+            <div class="hud-status-bulb"></div>
+            <span class="hud-label" style="font-weight: 600; color: var(--text-main); font-size: 11px;">FinPilot AI Grounding Engine HUD</span>
+          </div>
+          <div class="ai-hud-grid">
+            <div class="ai-hud-item">
+              <span class="hud-label">Cognitive Model Brain</span>
+              <span class="hud-value"><strong>Groq Llama-3.3-70B</strong></span>
+            </div>
+            <div class="ai-hud-item">
+              <span class="hud-label">Sentiment NLP Model</span>
+              <span class="hud-value">HuggingFace FinBERT</span>
+            </div>
+            <div class="ai-hud-item">
+              <span class="hud-label">Market Ingestion APIs</span>
+              <span class="hud-value">Gold API v2 + Crypto WS</span>
+            </div>
+            <div class="ai-hud-item">
+              <span class="hud-label">Caching & Rate Limits</span>
+              <span class="hud-value">9 Reqs/Hour (Strict Guard)</span>
+            </div>
+          </div>
+        </div>
+
         <div class="recommendations-container" id="recommendations-deck">
           <!-- Rendered dynamically -->
           <p class="text-muted" style="padding: 20px 0;">Select your assets and request a customized analysis to generate recommendations.</p>

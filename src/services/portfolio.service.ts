@@ -5,7 +5,7 @@ import marketDataService, { TechnicalIndicators } from './marketData.service';
 import newsService from './news.service';
 import sentimentService from './sentiment.service';
 import { logger } from '../utils/logger';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { config } from '../config/config';
 
 export interface PortfolioAsset {
@@ -44,16 +44,31 @@ export interface RecommendationData {
   sentimentScore: number;
   sentimentLabel: string;
   analysisDate: Date;
+  rsi?: number;
+  rsiSignal?: 'BUY' | 'SELL' | 'NEUTRAL';
+  macd?: {
+    macdLine: number;
+    signalLine: number;
+    histogram: number;
+    signal: 'BUY' | 'SELL' | 'NEUTRAL';
+  };
+  bollingerBands?: {
+    middle: number;
+    upper: number;
+    lower: number;
+    signal: 'BUY' | 'SELL' | 'NEUTRAL';
+  };
+  obv?: number;
 }
 
 /**
  * Service for managing portfolio and generating recommendations
  */
 class PortfolioService {
-  private genAI: GoogleGenAI;
+  private groq: Groq;
 
   constructor() {
-    this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
+    this.groq = new Groq({ apiKey: config.apiKeys.groq });
   }
 
   /**
@@ -208,8 +223,8 @@ class PortfolioService {
         : await marketDataService.getMetalPrice(portfolio.symbol);
 
       const historicalPrices = portfolio.assetType === 'CRYPTO'
-        ? await marketDataService.getCryptoHistoricalPrices(portfolio.symbol)
-        : await marketDataService.getMetalHistoricalPrices(portfolio.symbol);
+        ? await marketDataService.getCryptoHistoricalPrices(portfolio.symbol, 30)
+        : await marketDataService.getMetalHistoricalPrices(portfolio.symbol, 30);
 
       const technicalIndicators = marketDataService.calculateTechnicalIndicators(historicalPrices);
 
@@ -252,6 +267,13 @@ class PortfolioService {
         sentimentScore: aggregatedSentiment.score,
         sentimentLabel: aggregatedSentiment.label,
         analysisDate: new Date(),
+        
+        // Advanced calculations parameters
+        rsi: technicalIndicators.rsi,
+        rsiSignal: technicalIndicators.rsiSignal,
+        macd: technicalIndicators.macd,
+        bollingerBands: technicalIndicators.bollingerBands,
+        obv: technicalIndicators.obv,
       };
     } catch (error) {
       logger.error('Error analyzing asset:', error);
@@ -302,7 +324,19 @@ TECHNICAL ANALYSIS:
 - Price Trend: ${technical.trend}
 - 7-Day Moving Average: $${technical.movingAverage7d.toFixed(2)}
 - Current vs MA: ${((currentPrice / technical.movingAverage7d - 1) * 100).toFixed(2)}%
-- Volatility: ${technical.volatility.toFixed(2)} (${technical.volatility > technical.movingAverage7d * 0.1 ? 'HIGH' : technical.volatility < technical.movingAverage7d * 0.05 ? 'LOW' : 'MEDIUM'})
+- Volatility (30-day standard deviation): ${technical.volatility.toFixed(2)} (${technical.volatility > technical.movingAverage7d * 0.1 ? 'HIGH' : technical.volatility < technical.movingAverage7d * 0.05 ? 'LOW' : 'MEDIUM'})
+- Relative Strength Index (RSI, 14-period): ${technical.rsi} (${technical.rsiSignal === 'BUY' ? 'OVERSOLD (BUY Signal)' : technical.rsiSignal === 'SELL' ? 'OVERBOUGHT (SELL Signal)' : 'NEUTRAL'})
+- MACD (12/26/9 EMA):
+  * MACD Line: ${technical.macd?.macdLine}
+  * Signal Line: ${technical.macd?.signalLine}
+  * Histogram: ${technical.macd?.histogram}
+  * Crossover Signal: ${technical.macd?.signal === 'BUY' ? 'BULLISH CROSSOVER (BUY Signal)' : technical.macd?.signal === 'SELL' ? 'BEARISH CROSSOVER (SELL Signal)' : 'NEUTRAL'}
+- Bollinger Bands (20-period):
+  * Middle Band (20 SMA): $${technical.bollingerBands?.middle.toFixed(2)}
+  * Upper Band (Resistance): $${technical.bollingerBands?.upper.toFixed(2)}
+  * Lower Band (Support): $${technical.bollingerBands?.lower.toFixed(2)}
+  * Signal: ${technical.bollingerBands?.signal === 'BUY' ? 'PRICE TOUCHED LOWER BAND (BUY/SUPPORT Signal)' : technical.bollingerBands?.signal === 'SELL' ? 'PRICE TOUCHED UPPER BAND (SELL/RESISTANCE Signal)' : 'NEUTRAL'}
+- On-Balance Volume (OBV): ${technical.obv}
 
 SENTIMENT ANALYSIS (from ${recentNews.length} recent articles):
 - Overall Sentiment: ${sentiment.label.toUpperCase()} (Score: ${sentiment.score.toFixed(2)})
@@ -317,15 +351,20 @@ ANALYSIS INSTRUCTIONS:
 Provide a comprehensive investment recommendation considering:
 1. The current profit/loss position (${isInProfit ? 'in profit' : 'in loss'} by ${Math.abs(priceChangeFromBuying).toFixed(2)}%)
 2. Technical indicators (trend: ${technical.trend}, price vs MA)
-3. Market sentiment from news analysis
-4. Risk-reward ratio for the asset type
+3. Advanced indicators:
+   - RSI (Relative Strength Index): 14-period momentum scanner. Values <30 are oversold (potential BUY/reversal), while values >70 are overbought (potential SELL/profit-taking).
+   - MACD (12/26/9 EMA): Trend-following momentum indicator. Bullish crossovers (MACD line crosses above signal line) signify buying opportunities, while Bearish crossovers signify selling pressure.
+   - Bollinger Bands (20-period): Volatility bands. Middle band is 20-period simple moving average. Prices touching or crossing the lower band act as support lines (potential BUY), while prices touching upper bands act as resistance (potential SELL).
+   - On-Balance Volume (OBV): Volume-weighted indicator showing momentum trends. An increasing OBV indicates buying pressure outstripping selling pressure, confirming price moves.
+4. Market sentiment from news analysis
+5. Risk-reward ratio for the asset type
 
 Your recommendation should:
 - BUY: If strong upward momentum, positive sentiment, and good entry point
 - HOLD: If mixed signals, moderate position, or waiting for better entry/exit
 - SELL: If downward trend, negative sentiment, significant profit-taking opportunity, or stop-loss needed
 
-Provide 4-6 specific, actionable reasoning points that justify your recommendation.
+Provide 4-6 specific, actionable reasoning points that justify your recommendation. Base these reasons directly on technical crossover states, RSI values, Bollinger support, and OBV indicators where appropriate.
 Include a realistic 7-day price target based on current trends.
 Set appropriate risk level based on volatility and market conditions.
 
@@ -346,11 +385,17 @@ REQUIRED JSON FORMAT (respond ONLY with valid JSON):
     try {
       logger.info(`Generating AI recommendation for ${portfolio.assetName} at $${currentPrice.toFixed(2)} (bought at $${portfolio.buyingPrice.toFixed(2)})`);
       
-      const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
+      const completion = await this.groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: 'You are a professional financial analyst. Always respond with raw valid JSON only, no markdown.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' },
       });
-      const text = response.text;
+      const text = completion.choices[0]?.message?.content;
 
       if (!text) {
         logger.warn(`No valid text returned from AI response for ${portfolio.assetName}, using fallback`);

@@ -225,14 +225,14 @@ class NewsService {
   private calculateRelevance(title: string, description: string, asset: string): number {
     const text = `${title} ${description}`.toLowerCase();
     const assetLower = asset.toLowerCase();
-    
+
     let score = 0;
-    
+
     // Check for exact match
     if (text.includes(assetLower)) {
       score += 0.5;
     }
-    
+
     // Check for related keywords
     const keywords = ['price', 'market', 'trading', 'investment', 'analysis', 'forecast'];
     keywords.forEach(keyword => {
@@ -240,7 +240,7 @@ class NewsService {
         score += 0.1;
       }
     });
-    
+
     return Math.min(score, 1);
   }
 
@@ -313,14 +313,14 @@ class NewsService {
         // Only add to newArticles if it was actually new
         if (isNew) {
           newArticles.push(article);
-          logger.info(`New article stored: ${article.title}`);
+          logger.debug(`New article stored: ${article.title}`);
         }
       } catch (error) {
         logger.error(`Error storing news article: ${article.url}`, error);
       }
     }
 
-    logger.info(`Stored news: ${newArticles.length} new out of ${articles.length} total`);
+    logger.debug(`Stored news: ${newArticles.length} new out of ${articles.length} total`);
     return newArticles;
   }
 

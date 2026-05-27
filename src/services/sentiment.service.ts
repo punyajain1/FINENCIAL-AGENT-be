@@ -1,5 +1,5 @@
 import { HfInference } from '@huggingface/inference';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import cacheService from './cache.service';
@@ -20,12 +20,12 @@ export interface SentimentResult {
  */
 class SentimentService {
   private hf: HfInference;
-  private genAI: GoogleGenAI;
+  private groq: Groq;
   private model = 'ProsusAI/finbert'; // Financial sentiment analysis model
 
   constructor() {
     this.hf = new HfInference(config.apiKeys.huggingface);
-    this.genAI = new GoogleGenAI({ apiKey: config.apiKeys.gemini });
+    this.groq = new Groq({ apiKey: config.apiKeys.groq });
   }
 
   /**
@@ -56,8 +56,8 @@ class SentimentService {
     } catch (error) {
       logger.error('Error analyzing sentiment via HuggingFace:', error);
       
-      // Fallback to Google Gemini
-      return await this.analyzeSentimentWithGemini(text);
+      // Fallback to Groq
+      return await this.analyzeSentimentWithGroq(text);
     }
   }
 
@@ -163,12 +163,12 @@ class SentimentService {
   }
 
   /**
-   * Fallback sentiment analysis using Google Gemini 2.5
+   * Fallback sentiment analysis using Groq
    */
-  private async analyzeSentimentWithGemini(text: string): Promise<SentimentResult> {
+  private async analyzeSentimentWithGroq(text: string): Promise<SentimentResult> {
     try {
-      logger.info('Performing sentiment analysis fallback using Google Gemini...');
-      
+      logger.info('Performing sentiment analysis fallback using Groq...');
+
       const prompt = `Analyze the sentiment of the following financial text and output a JSON object containing:
 1. "score": a number from -1.0 (extremely negative) to 1.0 (extremely positive).
 2. "label": one of "positive", "negative", or "neutral".
@@ -177,19 +177,22 @@ class SentimentService {
 Do not include any explanation or markdown formatting (like \`\`\`json). Output raw valid JSON only.
 
 TEXT TO ANALYZE:
-"${text.substring(0, 1000)}"`;
+"${text.substring(0, 1000)}"\``;
 
-      const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        }
+      const completion = await this.groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: 'You are a financial sentiment analysis expert. Always respond with raw valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 256,
+        response_format: { type: 'json_object' },
       });
 
-      const responseText = response.text;
+      const responseText = completion.choices[0]?.message?.content;
       if (!responseText) {
-        throw new Error('Gemini returned an empty response');
+        throw new Error('Groq returned an empty response');
       }
 
       const result = JSON.parse(responseText.trim());
@@ -203,7 +206,7 @@ TEXT TO ANALYZE:
         neutral: label === 'neutral' ? confidence : 1 - confidence,
       };
 
-      logger.info(`Gemini sentiment result: ${label} (score: ${score}, confidence: ${confidence})`);
+      logger.info(`Groq sentiment result: ${label} (score: ${score}, confidence: ${confidence})`);
 
       return {
         score,
@@ -212,7 +215,7 @@ TEXT TO ANALYZE:
         details,
       };
     } catch (error) {
-      logger.error('Gemini fallback sentiment analysis failed:', error);
+      logger.error('Groq fallback sentiment analysis failed:', error);
       return this.createNeutralSentiment();
     }
   }
