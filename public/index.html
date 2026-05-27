@@ -35,6 +35,7 @@
         <button class="nav-tab" data-tab="chatbot">AI Assistant</button>
         <button class="nav-tab" data-tab="news">News Stream</button>
         <button class="nav-tab" data-tab="recommendations">Recommendations</button>
+        <button class="nav-tab" data-tab="docs">Docs & Architecture</button>
       </nav>
       <div class="connection-status">
         <span class="status-indicator offline" id="ws-indicator"></span>
@@ -204,6 +205,473 @@
         <div class="recommendations-container" id="recommendations-deck">
           <!-- Rendered dynamically -->
           <p class="text-muted" style="padding: 20px 0;">Select your assets and request a customized analysis to generate recommendations.</p>
+        </div>
+      </section>
+
+      <!-- ================= DOCS & ARCHITECTURE TAB ================= -->
+      <section id="tab-docs" class="tab-content">
+        <div class="docs-layout">
+          <!-- Sticky Sub-Navigation Sidebar -->
+          <aside class="docs-sidebar">
+            <div class="docs-sidebar-header">
+              <span class="docs-badge">Technical Guide</span>
+              <h3>FinPilot System Specs</h3>
+            </div>
+            <nav class="docs-nav">
+              <a href="#docs-overview" class="docs-nav-link active">
+                <span class="nav-bullet"></span>Overview & Vision
+              </a>
+              <a href="#docs-architecture" class="docs-nav-link">
+                <span class="nav-bullet"></span>System Topology
+              </a>
+              <a href="#docs-ai-pipeline" class="docs-nav-link">
+                <span class="nav-bullet"></span>AI Sentiment Pipeline
+              </a>
+              <a href="#docs-indicators" class="docs-nav-link">
+                <span class="nav-bullet"></span>Technical Indicators
+              </a>
+              <a href="#docs-standby" class="docs-nav-link">
+                <span class="nav-bullet"></span>Standby Optimizer
+              </a>
+              <a href="#docs-api" class="docs-nav-link">
+                <span class="nav-bullet"></span>API Endpoint Registry
+              </a>
+              <a href="#docs-techstack" class="docs-nav-link">
+                <span class="nav-bullet"></span>Tech Stack
+              </a>
+            </nav>
+          </aside>
+
+          <!-- Documentation Content Area -->
+          <div class="docs-content-area">
+            
+            <!-- Section 1: Overview -->
+            <div id="docs-overview" class="docs-section">
+              <span class="section-tag">01 / OVERVIEW</span>
+              <h2>Project Vision & Core Capabilities</h2>
+              <p class="lead-text">FinPilot is an advanced, dark-minimalist real-time financial portfolio technical analyst and AI recommendation system. It aggregates live asset telemetry across volatile cryptocurrencies and precious metals markets, merging it with multi-channel media sentiments to provide on-demand, institutional-grade insights.</p>
+              
+              <div class="feature-grid">
+                <div class="feature-card">
+                  <div class="feature-icon">⚡</div>
+                  <h4>24/7 Live Monitoring</h4>
+                  <p>Keeps dynamic indices updated on precious metals (Gold, Silver) and cryptocurrencies (Bitcoin, Ethereum) automatically.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">🧠</div>
+                  <h4>FinBERT Sentiment Engine</h4>
+                  <p>Applies a localized HuggingFace FinBERT model specifically pre-trained to classify financial text sentiments with high precision.</p>
+                </div>
+                 <div class="feature-card">
+                  <div class="feature-icon">🔍</div>
+                  <h4>Sliding Context Memory</h4>
+                  <p>Maintains multi-turn conversation states, retaining the last 10 dialog exchanges to yield highly cohesive replies.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">📈</div>
+                  <h4>Mathematical Indicators</h4>
+                  <p>Runs sub-millisecond multi-period standard deviation and moving averages on price vectors to generate trading signals.</p>
+                </div>
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 2: Architecture Topology Diagram -->
+            <div id="docs-architecture" class="docs-section">
+              <span class="section-tag">02 / SYSTEM TOPOLOGY</span>
+              <h2>System Architecture & Conceptual Flow</h2>
+              <p class="section-desc">The application operates on a robust Service-Oriented Architecture (SOA), coordinating WebSocket connections, REST APIs, background cron schedules, double-tiered caching databases, and multiple cognitive model pipelines.</p>
+              
+              <!-- Pure CSS Interactive Diagram -->
+              <div class="arch-diagram-wrapper">
+                <div class="arch-diagram">
+                  
+                  <!-- Layer 1: Client -->
+                  <div class="diagram-layer">
+                    <div class="layer-title">Browser Client Tier</div>
+                    <div class="nodes-row">
+                      <div class="diagram-node node-client">
+                        <div class="node-icon">💻</div>
+                        <div class="node-title">HTML5 / CSS3 / Vanilla JS</div>
+                        <div class="node-details">Client Interface app.js</div>
+                        <div class="node-status"><span class="status-dot green"></span>Active Client</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="diagram-path"><div class="path-line pulse-down"></div></div>
+
+                  <!-- Layer 2: API Gateway & Server -->
+                  <div class="diagram-layer">
+                    <div class="layer-title">Application Core Tier</div>
+                    <div class="nodes-row">
+                      <div class="diagram-node node-server">
+                        <div class="node-icon">⚙️</div>
+                        <div class="node-title">Express.js Node Server</div>
+                        <div class="node-details">TypeScript Controller Registry</div>
+                        <div class="node-status"><span class="status-dot green"></span>HTTP / WebSocket Gateway</div>
+                      </div>
+                      <div class="diagram-node node-cron">
+                        <div class="node-icon">⏱️</div>
+                        <div class="node-title">Cron Automation Engine</div>
+                        <div class="node-details">5m Crawlers / 24h Purge</div>
+                        <div class="node-status"><span class="status-dot blue"></span>Active-Client Standby</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="diagram-path"><div class="path-line pulse-down"></div></div>
+
+                  <!-- Layer 3: Persistence & Cache -->
+                  <div class="diagram-layer">
+                    <div class="layer-title">Data & State Persistence Tier</div>
+                    <div class="nodes-row flex-three">
+                      <div class="diagram-node node-db">
+                        <div class="node-icon">🗄️</div>
+                        <div class="node-title">PostgreSQL Database</div>
+                        <div class="node-details">Prisma ORM Persistence Layer</div>
+                        <div class="node-status"><span class="status-dot green"></span>Neon Serverless DB</div>
+                      </div>
+                      <div class="diagram-node node-cache">
+                        <div class="node-icon">💾</div>
+                        <div class="node-title">Two-Tier Cache Hub</div>
+                        <div class="node-details">RAM Miss ➔ DB Miss ➔ API Fetch</div>
+                        <div class="node-status"><span class="status-dot gold"></span>1m Rates / 5m Historical Cache</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="diagram-path"><div class="path-line pulse-down"></div></div>
+
+                  <!-- Layer 4: Cognitive & External Services -->
+                  <div class="diagram-layer">
+                    <div class="layer-title">External Integration & Cognitive AI Tier</div>
+                    <div class="nodes-row flex-three">
+                      <div class="diagram-node node-external">
+                        <div class="node-icon">🌐</div>
+                        <div class="node-title">Market & News Feeds</div>
+                        <div class="node-details">CoinGecko, GoldAPI, Global News</div>
+                        <div class="node-status"><span class="status-dot blue"></span>External API Integration</div>
+                      </div>
+                      <div class="diagram-node node-ai">
+                        <div class="node-icon">🧠</div>
+                        <div class="node-title">Cognitive AI Models</div>
+                        <div class="node-details">Llama-3.3-70B + Llama-3.1-8B</div>
+                        <div class="node-status"><span class="status-dot gold"></span>FinBERT Sentiment NLP</div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 3: AI Cognitive Pipeline -->
+            <div id="docs-ai-pipeline" class="docs-section">
+              <span class="section-tag">03 / COGNITIVE AI PIPELINE</span>
+              <h2>Advanced AI Ingestion & Grounding Pipeline</h2>
+              <p class="section-desc">FinPilot coordinates textual semantics and numerical vectors using a robust multi-tiered cognitive framework.</p>
+              
+              <div class="pipeline-flow">
+                <div class="pipeline-step">
+                  <div class="step-num">A</div>
+                  <div class="step-content">
+                    <h4>Primary NLP: HuggingFace FinBERT Model</h4>
+                    <p>Financial media is highly nuanced. The system ingests crawled articles and streams them through the <code>ProsusAI/finbert</code> NLP model. It evaluates word semantics to output precise weights: Positive, Negative, and Neutral. Sentiment signals are stored alongside articles in Neon PostgreSQL.</p>
+                  </div>
+                </div>
+                
+                <div class="pipeline-step">
+                  <div class="step-num">B</div>
+                  <div class="step-content">
+                    <h4>Zero-Downtime Fallback: Groq Llama-3.1-8B</h4>
+                    <p>If the primary HuggingFace sentiment API hits rate limits or authorization constraints (e.g. HTTP 403), the system triggers an instantaneous fallback. It routes the text to the ultra-low latency Groq <code>llama-3.1-8b-instant</code> engine, requesting response formatting as a strictly validated JSON structure.</p>
+                  </div>
+                </div>
+                
+                <div class="pipeline-step">
+                  <div class="step-num">C</div>
+                  <div class="step-content">
+                    <h4>Grounded Assistant: Meta Llama-3.3-70B</h4>
+                    <p>For dialog interactions, the assistant calls Meta's advanced <code>llama-3.3-70b-versatile</code> model. It processes financial data vectors, evaluates market news metrics, maintains dialogue state across a 10-turn sliding history buffer, and formulates precise analytical replies.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 4: Technical Indicators Mathematics -->
+            <div id="docs-indicators" class="docs-section">
+              <span class="section-tag">04 / ALGORITHMIC INDICATORS</span>
+              <h2>Asset Indicator Mathematics Engine</h2>
+              <p class="section-desc">To formulate BUY, SELL, or HOLD recommendations, FinPilot calculates high-precision technical indicator vectors over 30-day market price sequences.</p>
+              
+              <div class="math-grid">
+                
+                <!-- RSI -->
+                <div class="math-card">
+                  <div class="math-card-header">
+                    <span class="math-badge blue">Momentum</span>
+                    <h4>Relative Strength Index (RSI - 14 Period)</h4>
+                  </div>
+                  <p class="math-description">Evaluates velocity and magnitude of price changes to identify overbought or oversold boundaries.</p>
+                  <div class="formula-box">
+                    RSI = 100 - [ 100 / (1 + RS) ]
+                  </div>
+                  <div class="math-legend">
+                    <p><strong>RS (Relative Strength)</strong> = Average Gain of 14 periods / Average Loss of 14 periods.</p>
+                    <p><span class="label-trigger buy">RSI &lt; 30</span>: Oversold boundary ➔ Triggers <strong>BUY</strong> signal.</p>
+                    <p><span class="label-trigger sell">RSI &gt; 70</span>: Overbought boundary ➔ Triggers <strong>SELL</strong> signal.</p>
+                  </div>
+                </div>
+
+                <!-- MACD -->
+                <div class="math-card">
+                  <div class="math-card-header">
+                    <span class="math-badge green">Trend Following</span>
+                    <h4>Moving Average Convergence Divergence (MACD)</h4>
+                  </div>
+                  <p class="math-description">Tracks relationship between two Exponential Moving Averages (EMA) of asset closed prices.</p>
+                  <div class="formula-box">
+                    MACD = EMA₁₂ (Close) - EMA₂₆ (Close)<br>
+                    Signal = EMA₉ (MACD)
+                  </div>
+                  <div class="math-legend">
+                    <p><strong>Histogram</strong> = MACD Line - Signal Line.</p>
+                    <p><span class="label-trigger buy">MACD &gt; Signal</span>: Bullish crossover ➔ Triggers <strong>BUY</strong> cue.</p>
+                    <p><span class="label-trigger sell">MACD &lt; Signal</span>: Bearish crossover ➔ Triggers <strong>SELL</strong> cue.</p>
+                  </div>
+                </div>
+
+                <!-- Bollinger Bands -->
+                <div class="math-card">
+                  <div class="math-card-header">
+                    <span class="math-badge gold">Volatility</span>
+                    <h4>Bollinger Bands (20-Period SD)</h4>
+                  </div>
+                  <p class="math-description">Establishes upper and lower threshold bands offset by standard deviations around an asset's moving average.</p>
+                  <div class="formula-box">
+                    Middle Band = SMA₂₀ (Close)<br>
+                    Upper / Lower = Middle Band ± (2 × σ₂₀)
+                  </div>
+                  <div class="math-legend">
+                    <p><strong>σ₂₀</strong> = 20-period historical closed standard deviation.</p>
+                    <p><span class="label-trigger buy">Price &le; Lower Band</span>: Support breach ➔ Triggers <strong>BUY</strong> signal.</p>
+                    <p><span class="label-trigger sell">Price &ge; Upper Band</span>: Resistance breach ➔ Triggers <strong>SELL</strong> signal.</p>
+                  </div>
+                </div>
+
+                <!-- OBV -->
+                <div class="math-card">
+                  <div class="math-card-header">
+                    <span class="math-badge red">Volume Dynamics</span>
+                    <h4>On-Balance Volume (OBV)</h4>
+                  </div>
+                  <p class="math-description">Combines asset volume and price action to determine cumulative buying or selling pressure.</p>
+                  <div class="formula-box">
+                    OBV_t = OBV_{t-1} ± Volume_t
+                  </div>
+                  <div class="math-legend">
+                    <p><strong>+ Volume_t</strong>: If current close &gt; previous close.</p>
+                    <p><strong>- Volume_t</strong>: If current close &lt; previous close.</p>
+                    <p>Indicates whether institutional capital is accumulating or distributing.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 5: Standby Logic & Cost Savings -->
+            <div id="docs-standby" class="docs-section">
+              <span class="section-tag">05 / RESOURCE OPTIMIZATION</span>
+              <h2>Client-Aware Standby Engine & Cost Savings</h2>
+              <p class="section-desc">FinPilot implements a custom cost-saving topology specifically optimized for cloud container runtimes (like Render and Railway) to bypass rate limitations and reduce resource exhaustion.</p>
+              
+              <div class="standby-card">
+                <div class="standby-header">
+                  <div class="standby-status-bulb connected"></div>
+                  <h4>Active-Client Sensing Architecture</h4>
+                </div>
+                
+                <div class="standby-grid">
+                  <div class="standby-box">
+                    <span class="icon">💤</span>
+                    <h5>1. Inactivity Standby</h5>
+                    <p>Background jobs (5-minute media crawler, hourly portfolio analyzer) query the WebSocket status before doing heavy lifting. If <code>getClientCount() === 0</code>, all fetches, LLM evaluations, and database operations are instantly skipped.</p>
+                  </div>
+                  <div class="standby-box">
+                    <span class="icon">⚡</span>
+                    <h5>2. Instant Connection Wake</h5>
+                    <p>When a user opens the browser interface, the WebSocket listener detects the connection, instantly wakes the container, and initiates a rates refresh, crawling headlines, scoring sentiments, and broadcasting the data.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 6: API Endpoints -->
+            <div id="docs-api" class="docs-section">
+              <span class="section-tag">06 / DEVELOPER API REFERENCE</span>
+              <h2>Unified Backend API Directory</h2>
+              <p class="section-desc">Explore the REST API endpoints exposed by the FinPilot Express server to interact with portfolios, AI chat agents, and sentiment news caches.</p>
+              
+              <div class="api-deck">
+                
+                <!-- GET /api/portfolio -->
+                <div class="api-item">
+                  <div class="api-header">
+                    <span class="api-badge get">GET</span>
+                    <span class="api-route">/api/portfolio</span>
+                    <span class="api-summary">Retrieve active portfolio assets &amp; current values</span>
+                  </div>
+                  <div class="api-details">
+                    <p>Retrieves all user positions, fetches real-time prices (CoinGecko / GoldAPI), calculates profit/loss values, and lists timestamps.</p>
+                    <pre><code>{
+  "success": true,
+  "data": [
+    {
+      "id": "c1a6b09e-7119-4a34-be57-4148e6580f1d",
+      "assetName": "Bitcoin",
+      "symbol": "BTC",
+      "assetType": "CRYPTO",
+      "amount": 0.25,
+      "buyingPrice": 62500.00,
+      "currentPrice": 68450.50,
+      "profitDecimal": 1487.625
+    }
+  ]
+}</code></pre>
+                  </div>
+                </div>
+
+                <!-- POST /api/portfolio/add -->
+                <div class="api-item">
+                  <div class="api-header">
+                    <span class="api-badge post">POST</span>
+                    <span class="api-route">/api/portfolio/add</span>
+                    <span class="api-summary">Create or update asset holdings</span>
+                  </div>
+                  <div class="api-details">
+                    <p>Adds a new position or adjusts current metrics in the user portfolio database.</p>
+                    <div class="param-title">Request Payload:</div>
+                    <pre><code>{
+  "assetName": "Ethereum",
+  "symbol": "ETH",
+  "assetType": "CRYPTO",
+  "amount": 1.5,
+  "buyingPrice": 3120.00
+}</code></pre>
+                  </div>
+                </div>
+
+                <!-- POST /api/chat -->
+                <div class="api-item">
+                  <div class="api-header">
+                    <span class="api-badge post">POST</span>
+                    <span class="api-route">/api/chat</span>
+                    <span class="api-summary">Interact with Groq Llama-3.3 Chatbot</span>
+                  </div>
+                  <div class="api-details">
+                    <p>Sends queries to the cognitive Groq Llama-3.3-70B chat assistant, maintaining multi-turn context indices.</p>
+                    <div class="param-title">Request Payload:</div>
+                    <pre><code>{
+  "message": "What is the positive or negative sentiment impact on ETH today?",
+  "conversationId": "7e3b5a19-b223-4554-b4a1-b8471e991204"
+}</code></pre>
+                  </div>
+                </div>
+
+                <!-- GET /api/news -->
+                <div class="api-item">
+                  <div class="api-header">
+                    <span class="api-badge get">GET</span>
+                    <span class="api-route">/api/news</span>
+                    <span class="api-summary">Retrieve cached financial sentiment news</span>
+                  </div>
+                  <div class="api-details">
+                    <p>Queries database for parsed news articles, positive/negative sentiment weights, and relevance scores sorted by publication dates.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <hr class="docs-divider">
+
+            <!-- Section 7: Tech Stack -->
+            <div id="docs-techstack" class="docs-section">
+              <span class="section-tag">07 / TECH STACK & TOPO</span>
+              <h2>Core Technical Stack Details</h2>
+              <p class="section-desc">FinPilot combines industry-standard frameworks, serverless datastores, low-latency AI inference channels, and secure cloud topologies.</p>
+              
+              <div class="tech-grid">
+                <div class="tech-card-mini">
+                  <span class="tech-icon">🟢</span>
+                  <div class="tech-info">
+                    <h5>TypeScript Node.js</h5>
+                    <p>Server architecture & type safety</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">⚡</span>
+                  <div class="tech-info">
+                    <h5>Express.js</h5>
+                    <p>REST Router & SSE Gateway</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">⬡</span>
+                  <div class="tech-info">
+                    <h5>Prisma ORM</h5>
+                    <p>Type-safe schema modeling</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">🐘</span>
+                  <div class="tech-info">
+                    <h5>Neon PostgreSQL</h5>
+                    <p>Serverless relational database</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">🤖</span>
+                  <div class="tech-info">
+                    <h5>Meta Llama 3.3</h5>
+                    <p>Advanced LLM cognitive engine</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">🚀</span>
+                  <div class="tech-info">
+                    <h5>Groq SDK</h5>
+                    <p>Ultra-low latency AI inference</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">🤗</span>
+                  <div class="tech-info">
+                    <h5>Hugging Face</h5>
+                    <p>FinBERT model for NLP sentiment</p>
+                  </div>
+                </div>
+                <div class="tech-card-mini">
+                  <span class="tech-icon">☁️</span>
+                  <div class="tech-info">
+                    <h5>Render + Vercel</h5>
+                    <p>Dual-cloud app hosting setup</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
 

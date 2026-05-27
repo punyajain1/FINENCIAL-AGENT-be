@@ -6,12 +6,13 @@
   <img src="https://img.shields.io/badge/Express.js-404D59?style=for-the-badge&logo=express&logoColor=white" alt="Express">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white" alt="Prisma">
-  <img src="https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini">
+  <img src="https://img.shields.io/badge/Meta%20Llama%203-04A5E5?style=for-the-badge&logo=meta&logoColor=white" alt="Meta Llama">
+  <img src="https://img.shields.io/badge/Groq%20SDK-f55e5b?style=for-the-badge" alt="Groq SDK">
 </div>
 
 <br>
 
-> **An AI-powered financial adviser backend** built with Node.js, Express, TypeScript, and Google Gemini AI. It provides real-time market analysis, portfolio recommendations, and investment guidance specifically tuned for cryptocurrencies and precious metals.
+> **An AI-powered financial adviser backend** built with Node.js, Express, TypeScript, and Groq Meta Llama-3.3-70B. It provides real-time market analysis, portfolio recommendations, and investment guidance specifically tuned for cryptocurrencies and precious metals.
 
 ---
 
@@ -28,9 +29,9 @@
   - Real-time event streaming to clients via Server-Sent Events (SSE).
 
 - **🤖 Intelligent Financial Chatbot**
-  - Powered by **Google Gemini AI** with Google Search grounding.
-  - Context-aware conversations with persistent session memory.
-  - Transparent source citations, intelligent web data access, and strict risk disclaimers.
+  - Powered by **Groq Llama-3.3-70B** for ultra-fast, intelligent dialogue turns.
+  - Context-aware conversations with persistent 10-turn sliding session memory.
+  - Real-time portfolio grounding and strict risk disclaimers.
 
 ---
 
@@ -54,7 +55,7 @@ graph TD
     subgraph "Data & External Layers"
         Services --> ORM[Prisma ORM]
         ORM --> DB[(PostgreSQL Database)]
-        Services --> ExternalWeb["External APIs<br>(Gemini, FinBERT, News, Market Data)"]
+        Services --> ExternalWeb["External APIs<br>(Groq SDK, FinBERT, News, Market Data)"]
     end
     
     style Client fill:#FAFAFA,stroke:#333
@@ -85,7 +86,7 @@ src/
 | **Runtime**     | Node.js, TypeScript |
 | **Framework**   | Express.js |
 | **Database**    | PostgreSQL, Prisma ORM |
-| **AI / ML**     | Google Gemini AI (Agent/Grounding), HuggingFace FinBERT (Sentiment) |
+| **AI / ML**     | Groq Llama-3.3-70B (Agent/Chat), HuggingFace FinBERT (Sentiment) |
 | **External APIs**| CoinGecko (Crypto), Gold API (Metals), NewsAPI/GNews (News) |
 | **Tooling**     | Winston (Logging), Node-Cache (Caching), Express-Validator |
 

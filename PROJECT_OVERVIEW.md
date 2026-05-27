@@ -2,7 +2,7 @@
 
 Welcome to **FinPilot Backend API**, a state-of-the-art, AI-powered financial advisor and portfolio monitoring system. The project is specifically engineered to analyze, track, and provide recommendations for cryptocurrencies (**Bitcoin, Ethereum**) and precious metals (**Gold, Silver**). 
 
-By combining real-time market APIs, financial news sentiment analysis (using FinBERT), and Google’s state-of-the-art Gemini AI with search grounding, FinPilot behaves as a fully automated, self-sustaining financial analyst that runs 24/7.
+By combining real-time market APIs, financial news sentiment analysis (using FinBERT), and Meta's state-of-the-art Llama-3.3-70B model running on high-speed Groq SDK inference, FinPilot behaves as a fully automated, self-sustaining financial analyst that runs 24/7.
 
 ---
 
@@ -17,7 +17,7 @@ graph TD
     Controllers <--> Services[Services: Chatbot, MarketData, News, Sentiment, Cache]
     Services <--> DB[(PostgreSQL Database via Prisma)]
     Services <--> Cron[Cron Scheduler: Every 5 mins]
-    Services <--> Gemini[Google Gemini AI: Grounding / Recommendations]
+    Services <--> Llama[Groq Llama-3.3-70B AI: Recommendations & Chat]
     Services <--> FinBERT[HuggingFace FinBERT: Sentiment Analysis]
     Services <--> ExtAPIs[External Market & News APIs: CoinGecko, GoldAPI, NewsAPI]
 ```
@@ -48,7 +48,7 @@ The system utilizes PostgreSQL as its persistent datastore, managed via **Prisma
    * `conversationId`: UUID grouping messages into conversational threads.
    * `role`: Enum (`USER` or `ASSISTANT`).
    * `message`: Conversation body text.
-   * `sources`: URLs cited by Gemini AI search grounding.
+   * `sources`: Reference citations or structural data nodes.
    * `confidence`: AI response confidence metrics.
    * `toolsUsed`: List of internal tools triggered during generation.
 
@@ -93,14 +93,14 @@ When a portfolio asset is analyzed (either manually via REST endpoints or automa
    * Computes **Volatility** (standard deviation of daily price ranges).
    * Detects the overarching price **Trend** (`UP`, `DOWN`, or `SIDEWAYS`).
 3. **Sentiment Aggregation**: Retrieves the latest news articles for the asset, aggregating recent sentiment scores.
-4. **AI Generation (Google Gemini)**: Sends the position payload (purchase price, profit/loss status, moving averages, volatility, sentiment metrics, and raw news headlines) to Gemini AI using a structured prompt.
-5. **Recommendation Output**: Gemini responds with a structured JSON payload recommending a `BUY`, `SELL`, or `HOLD` action, along with:
+4. **AI Generation (Groq Llama-3.3)**: Sends the position payload (purchase price, profit/loss status, moving averages, volatility, sentiment metrics, and raw news headlines) to Groq's <code>llama-3.3-70b-versatile</code> model using a structured prompt.
+5. **Recommendation Output**: The model responds with a structured JSON payload recommending a `BUY`, `SELL`, or `HOLD` action, along with:
    * **Reasoning**: 4-6 bulleted analytical justifications.
    * **Confidence**: 0-100% confidence level.
    * **Price Target**: Realistic 7-day price goal.
    * **Risk Level**: Assessment of volatility (`LOW`, `MEDIUM`, or `HIGH`).
 
-*Fallback Mechanism*: If the Gemini API fails, is throttled, or returns malformed data, a robust, rule-based algorithm takes over, evaluating the moving averages and sentiment score thresholds to ensure system continuity.
+*Fallback Mechanism*: If the Groq API fails, is throttled, or returns malformed data, a robust, rule-based algorithm takes over, evaluating the moving averages and sentiment score thresholds to ensure system continuity.
 
 ---
 
@@ -113,9 +113,8 @@ FinPilot continuously scans the global media landscape to feed its analytical pi
 ---
 
 ### 4. Interactive Grounded Chatbot (`chatbot.service.ts`)
-The API exposes an endpoint for real-time natural language interaction, powered by Google Gemini AI:
-* **Search Grounding**: FinPilot enables Gemini's Search Grounding feature. When a user asks about live market conditions or predictions, the AI conducts Google searches in real-time.
-* **Verification & Citations**: The model's response includes search queries used and URL references, ensuring the client receives highly accurate, verifiable advice.
+The API exposes an endpoint for real-time natural language interaction, powered by Groq Llama-3.3-70B:
+* **Market-Aware Synthesis**: Evaluates dynamic portfolio indices and sentiment scores to reply with specialized asset guidance.
 * **Context Preservation**: The service tracks and stores conversational threads in `ChatHistory`, feeding up to the last 10 exchanges back into the prompt buffer for continuous context.
 
 ---
@@ -128,7 +127,7 @@ src/
 │   ├── config.ts         # Environment variables & runtime configurations
 │   └── database.ts       # Prisma Client instantiation
 ├── controllers/
-│   ├── chat.controller.ts       # Chat endpoint handler, invokes Gemini Grounded Chat
+│   ├── chat.controller.ts       # Chat endpoint handler, invokes Llama Chat
 │   ├── news.controller.ts       # Retrieves stored news, SSE stream, manual news fetching
 │   └── portfolio.controller.ts  # CRUD for holdings, fetches on-demand recommendations
 ├── middleware/
@@ -141,7 +140,7 @@ src/
 │   └── portfolio.routes.ts # GET /api/portfolio, POST /api/portfolio/add
 ├── services/
 │   ├── cache.service.ts       # Two-tier cache service (node-cache & DB)
-│   ├── chatbot.service.ts     # Gemini Chat engine with history & web-search
+│   ├── chatbot.service.ts     # Groq Llama-3.3-70B Chat engine with context history
 │   ├── cron.service.ts        # Node-cron scheduler for periodic market parsing
 │   ├── marketData.service.ts  # CoinGecko/Metals-API price & technical indicator math
 │   ├── news.service.ts        # News API aggregator, keyword filtering, and db storage
@@ -185,7 +184,7 @@ NODE_ENV=development
 DATABASE_URL="postgresql://user:password@localhost:5432/finpilot?schema=public"
 
 # AI/ML APIs
-GEMINI_API_KEY="your-google-gemini-api-key"
+GROQ_API_KEY="your-groq-api-key"
 HUGGINGFACE_API_KEY="your-huggingface-api-key"
 
 # Market & News APIs
