@@ -86,10 +86,10 @@ const elements = {
   recommendationsDeck: document.getElementById('recommendations-deck'),
 };
 
-const BACKEND_URL = 'https://finpilot-backend-api-production.up.railway.app';
+const BACKEND_URL = 'https://finpilot-backend-api.onrender.com';
 
 function getApiUrl(path) {
-  if (window.location.hostname === 'finpilot-backend-api-production.up.railway.app') {
+  if (window.location.hostname === 'finpilot-backend-api.onrender.com') {
     return path;
   }
   return `${BACKEND_URL}${path}`;
@@ -192,23 +192,23 @@ function setupTabs() {
 function setupDocsNav() {
   const navLinks = document.querySelectorAll('.docs-nav-link');
   const sections = document.querySelectorAll('.docs-section');
-  
+
   // Click handler for smooth scrolling
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
       const targetId = link.getAttribute('href');
       const targetSection = document.querySelector(targetId);
-      
+
       if (targetSection) {
         // Calculate offset (e.g. 40px padding top)
         const offsetPosition = targetSection.offsetTop - 20;
-        
+
         window.scrollTo({
           top: offsetPosition,
           behavior: 'smooth'
         });
-        
+
         // Update active class immediately on click
         navLinks.forEach(l => l.classList.remove('active'));
         link.classList.add('active');
@@ -219,19 +219,19 @@ function setupDocsNav() {
   // Scrollspy logic to highlight current section on scroll
   window.addEventListener('scroll', () => {
     if (state.activeTab !== 'docs') return;
-    
+
     let currentSectionId = '';
     const scrollPosition = window.scrollY + 160; // offset for dynamic highlights
-    
+
     sections.forEach(section => {
       const sectionTop = section.offsetTop;
       const sectionHeight = section.offsetHeight;
-      
+
       if (scrollPosition >= sectionTop && scrollPosition < (sectionTop + sectionHeight)) {
         currentSectionId = section.getAttribute('id');
       }
     });
-    
+
     if (currentSectionId) {
       navLinks.forEach(link => {
         if (link.getAttribute('href') === `#${currentSectionId}`) {
