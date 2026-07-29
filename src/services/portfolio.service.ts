@@ -386,7 +386,7 @@ REQUIRED JSON FORMAT (respond ONLY with valid JSON):
       logger.info(`Generating AI recommendation for ${portfolio.assetName} at $${currentPrice.toFixed(2)} (bought at $${portfolio.buyingPrice.toFixed(2)})`);
       
       const completion = await this.groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         messages: [
           { role: 'system', content: 'You are a professional financial analyst. Always respond with raw valid JSON only, no markdown.' },
           { role: 'user', content: prompt },

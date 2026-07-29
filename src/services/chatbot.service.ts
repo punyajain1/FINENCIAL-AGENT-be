@@ -13,7 +13,7 @@ export interface ChatMessage {
 
 class ChatbotService {
   private groq: Groq;
-  private model = 'llama-3.3-70b-versatile';
+  private model = 'llama-3.1-8b-instant';
 
   constructor() {
     this.groq = new Groq({ apiKey: config.apiKeys.groq });
