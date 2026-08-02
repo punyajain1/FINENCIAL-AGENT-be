@@ -17,7 +17,7 @@ model Portfolio {
   symbol         String    // e.g., "BTC", "ETH", "XAU", "XAG"
   amount         Float     // Amount held
   buyingPrice    Float     // Price at which the asset was bought
-  lastAnalyzedAt DateTime? // Timestamp of last AI analysis
+  analyses       PortfolioAnalysis[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   
@@ -89,4 +89,16 @@ enum AssetType {
 enum Role {
   USER
   ASSISTANT
+}
+
+model PortfolioAnalysis {
+  id             String    @id @default(uuid())
+  portfolioId    String
+  portfolio      Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  data           Json      // Contains RecommendationData
+  
+  createdAt      DateTime  @default(now())
+  
+  @@index([portfolioId])
 }

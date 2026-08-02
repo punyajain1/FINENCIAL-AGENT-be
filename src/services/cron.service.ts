@@ -96,8 +96,9 @@ class CronJobsService {
       for (const portfolio of portfolios) {
         try {
           // Skip any asset that was analyzed within the last 2 hours
-          if (portfolio.lastAnalyzedAt && new Date(portfolio.lastAnalyzedAt) > twoHoursAgo) {
-            logger.debug(`Skipping analysis for ${portfolio.assetName} (${portfolio.symbol}) - analyzed recently at ${portfolio.lastAnalyzedAt.toISOString()}`);
+          const latestAnalysis = await portfolioService.getCachedAnalysis(portfolio.id);
+          if (latestAnalysis && new Date(latestAnalysis.analysisDate) > twoHoursAgo) {
+            logger.debug(`Skipping analysis for ${portfolio.assetName} (${portfolio.symbol}) - analyzed recently at ${new Date(latestAnalysis.analysisDate).toISOString()}`);
             continue;
           }
 

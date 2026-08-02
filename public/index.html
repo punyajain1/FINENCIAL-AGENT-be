@@ -134,7 +134,10 @@
       <section id="tab-news" class="tab-content">
         <div class="section-header">
           <h2>Real-Time News Stream</h2>
-          <button class="btn btn-secondary small" id="trigger-news-fetch-btn">Force Fetch News</button>
+          <div>
+            <span id="last-fetched-time" style="font-size: 12px; color: var(--text-muted); margin-right: 15px; font-weight: 500;"></span>
+            <button class="btn btn-secondary small" id="trigger-news-fetch-btn">Force Fetch News</button>
+          </div>
         </div>
         <div class="news-container">
           <div class="news-list" id="news-feed">
@@ -174,6 +177,10 @@
             <h2>AI Asset Recommendations</h2>
             <p class="section-sub">Get on-demand trading strategies and 7-day target metrics using active market data, indicators, and media sentiment.</p>
           </div>
+        </div>
+        
+        <div class="alert alert-warning" style="margin-bottom: 20px; font-size: 13px; background: rgba(255, 170, 0, 0.1); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.2); padding: 12px; border-radius: 8px;">
+          <strong>Note:</strong> If the backend has been asleep, auto-fetching pauses. Ensure you trigger a <strong>Force Fetch</strong> in the News tab so the AI has the absolute latest market context before analyzing.
         </div>
 
         <!-- AI Engine & Sentiment Scanner HUD Banner -->
@@ -397,6 +404,14 @@
                   <div class="step-content">
                     <h4>Grounded Assistant: Meta Llama-3.3-70B</h4>
                     <p>For dialog interactions, the assistant calls Meta's advanced <code>llama-3.3-70b-versatile</code> model. It processes financial data vectors, evaluates market news metrics, maintains dialogue state across a 10-turn sliding history buffer, and formulates precise analytical replies.</p>
+                  </div>
+                </div>
+                
+                <div class="pipeline-step">
+                  <div class="step-num">D</div>
+                  <div class="step-content">
+                    <h4>Time-Based RAG Injection</h4>
+                    <p>The chatbot employs a fast keyword extractor to intercept asset tickers (e.g., BTC, Gold) from user prompts. It bypasses complex vector embeddings by querying the PostgreSQL database directly, strictly filtering by <code>publishedAt DESC</code>. This ultra-fresh market context and live portfolio data is dynamically pre-pended to the AI system prompt, effectively eliminating hallucinations.</p>
                   </div>
                 </div>
               </div>

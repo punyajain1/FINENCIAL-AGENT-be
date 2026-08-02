@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import * as ccxt from 'ccxt';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import cacheService from './cache.service';
@@ -43,6 +44,10 @@ export interface TechnicalIndicators {
  * Crypto data source: Binance Public API (https://api.binance.com)
  *   - No API key required
  *   - Rate limit: ~1 200 requests/min (weight-based) — far more generous than CoinGecko free tier
+ *
+ * Crypto fallback (if Binance fails): CCXT exchange pool
+ *   - Tries in order: binance → kraken → coinbase → bybit → okx
+ *   - All use public endpoints — no API key required
  *
  * Metal data source: gold-api.com
  *   - No authentication required
@@ -287,33 +292,222 @@ class MarketDataService {
   }
 
   // ---------------------------------------------------------------------------
+  // Crypto — CCXT Fallback Pool
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Ranked list of exchanges to try (in order) when Binance is unavailable.
+   * All use public endpoints — no API key required.
+   */
+  private readonly CCXT_EXCHANGE_PRIORITY: string[] = [
+    'binance', 'kraken', 'coinbase', 'bybit', 'okx',
+  ];
+
+  /**
+   * Lazily-initialised CCXT exchange instances.
+   * Reusing instances avoids repeated construction overhead.
+   */
+  private ccxtExchanges: Map<string, ccxt.Exchange> = new Map();
+
+  /**
+   * Per-exchange flag: have we already called loadMarkets()?
+   * Markets are loaded once and cached in the ccxt exchange object itself.
+   */
+  private ccxtMarketsLoaded: Set<string> = new Set();
+
+  /** Return (or create) a CCXT exchange instance by id. */
+  private getCcxtExchange(id: string): ccxt.Exchange {
+    if (!this.ccxtExchanges.has(id)) {
+      // Instantiate with timeout settings; no credentials needed
+      const ExchangeClass = (ccxt as any)[id] as new (config?: object) => ccxt.Exchange;
+      const exchange = new ExchangeClass({
+        timeout: 10000,
+        enableRateLimit: true,
+      });
+      this.ccxtExchanges.set(id, exchange);
+    }
+    return this.ccxtExchanges.get(id)!;
+  }
+
+  /**
+   * Ensure markets are loaded for the exchange (once per process lifetime).
+   * loadMarkets() is an expensive network call — we guard it with a Set flag.
+   */
+  private async ensureMarketsLoaded(exchange: ccxt.Exchange): Promise<void> {
+    if (this.ccxtMarketsLoaded.has(exchange.id)) return;
+    await exchange.loadMarkets();
+    this.ccxtMarketsLoaded.add(exchange.id);
+  }
+
+  /**
+   * Resolve a USDT/USD market symbol for the given exchange.
+   * Tries `BASE/USDT`, then `BASE/USD`, then `BASE/BUSD`.
+   */
+  private resolveCcxtSymbol(
+    exchange: ccxt.Exchange,
+    base: string
+  ): string | null {
+    const candidates = [`${base}/USDT`, `${base}/USD`, `${base}/BUSD`];
+    for (const sym of candidates) {
+      if (exchange.markets?.[sym]) return sym;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch current USD price via CCXT exchange pool.
+   * Tries each exchange in CCXT_EXCHANGE_PRIORITY order; returns the first success.
+   */
+  private async fetchCcxtPriceUSD(symbol: string): Promise<{ price: number; exchange: string }> {
+    const upper = symbol.toUpperCase();
+
+    if (this.USD_STABLECOINS.has(upper)) return { price: 1.0, exchange: 'internal' };
+
+    const errors: string[] = [];
+
+    for (const exchangeId of this.CCXT_EXCHANGE_PRIORITY) {
+      try {
+        const exchange = this.getCcxtExchange(exchangeId);
+        await this.ensureMarketsLoaded(exchange);
+
+        const ccxtSymbol = this.resolveCcxtSymbol(exchange, upper);
+        if (!ccxtSymbol) {
+          errors.push(`${exchangeId}: no market for ${upper}`);
+          continue;
+        }
+
+        const ticker = await exchange.fetchTicker(ccxtSymbol);
+        const price = ticker.last ?? ticker.close ?? ticker.bid ?? ticker.ask;
+
+        if (price == null || price <= 0) {
+          errors.push(`${exchangeId}: ticker returned null/zero price`);
+          continue;
+        }
+
+        logger.info(`CCXT fallback: ${upper} = $${price.toFixed(4)} via ${exchangeId}`);
+        return { price, exchange: exchangeId };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${exchangeId}: ${msg}`);
+        logger.warn(`CCXT ${exchangeId} failed for ${upper}: ${msg}`);
+      }
+    }
+
+    throw new Error(
+      `CCXT fallback exhausted all exchanges for "${symbol}". Errors: ${errors.join(' | ')}`
+    );
+  }
+
+  /**
+   * Fetch historical daily OHLCV data via CCXT exchange pool.
+   * Tries each exchange in priority order; returns the first success.
+   */
+  private async fetchCcxtHistoricalUSD(
+    symbol: string,
+    days: number
+  ): Promise<HistoricalPrice[]> {
+    const upper = symbol.toUpperCase();
+
+    if (this.USD_STABLECOINS.has(upper)) {
+      return Array.from({ length: days }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (days - 1 - i));
+        return { timestamp: date, price: 1.0, volume: 0 };
+      });
+    }
+
+    const errors: string[] = [];
+    const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    for (const exchangeId of this.CCXT_EXCHANGE_PRIORITY) {
+      try {
+        const exchange = this.getCcxtExchange(exchangeId);
+        await this.ensureMarketsLoaded(exchange);
+
+        if (!exchange.has['fetchOHLCV']) {
+          errors.push(`${exchangeId}: fetchOHLCV not supported`);
+          continue;
+        }
+
+        const ccxtSymbol = this.resolveCcxtSymbol(exchange, upper);
+        if (!ccxtSymbol) {
+          errors.push(`${exchangeId}: no market for ${upper}`);
+          continue;
+        }
+
+        // OHLCV: [timestamp, open, high, low, close, volume]
+        const ohlcv = await exchange.fetchOHLCV(ccxtSymbol, '1d', sinceMs, days);
+
+        if (!ohlcv || ohlcv.length === 0) {
+          errors.push(`${exchangeId}: empty OHLCV response`);
+          continue;
+        }
+
+        const prices: HistoricalPrice[] = ohlcv.map((candle: ccxt.OHLCV) => ({
+          timestamp: new Date((candle[0] as number)),
+          price: (candle[4] as number),   // close
+          volume: (candle[5] as number),  // volume
+        }));
+
+        logger.info(
+          `CCXT fallback: ${prices.length} candles for ${upper} via ${exchangeId}`
+        );
+        return prices;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${exchangeId}: ${msg}`);
+        logger.warn(`CCXT ${exchangeId} OHLCV failed for ${upper}: ${msg}`);
+      }
+    }
+
+    throw new Error(
+      `CCXT fallback exhausted all exchanges for "${symbol}" history. Errors: ${errors.join(' | ')}`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Public methods — just pass "BTC", "ETH", "SOL", etc.
   // ---------------------------------------------------------------------------
 
   /**
    * Get the current USD price for a cryptocurrency.
-   * Auto-detects the right Binance pair — no manual configuration needed.
+   * Primary source: Binance public API.
+   * Fallback: CCXT exchange pool (binance → kraken → coinbase → bybit → okx).
    */
   async getCryptoPrice(symbol: string): Promise<PriceData> {
     const cacheKey = `crypto_price:${symbol}`;
     const cached = await cacheService.get<PriceData>(cacheKey);
     if (cached) return cached;
 
+    // --- Primary: Binance ---
     try {
       const price = await this.fetchBinancePriceUSD(symbol);
       const priceData: PriceData = { symbol, price, timestamp: new Date() };
       await cacheService.set(cacheKey, priceData, 60); // 1 minute cache
       logger.info(`Binance: ${symbol} = $${price.toFixed(4)}`);
       return priceData;
-    } catch (error) {
-      this.handleApiError(error, 'Binance');
-      throw error;
+    } catch (binanceError) {
+      const msg = binanceError instanceof Error ? binanceError.message : String(binanceError);
+      logger.warn(`Binance price fetch failed for ${symbol} — engaging CCXT fallback. Reason: ${msg}`);
+    }
+
+    // --- Fallback: CCXT pool ---
+    try {
+      const { price, exchange } = await this.fetchCcxtPriceUSD(symbol);
+      const priceData: PriceData = { symbol, price, timestamp: new Date() };
+      await cacheService.set(cacheKey, priceData, 60);
+      logger.info(`CCXT (${exchange}): ${symbol} = $${price.toFixed(4)}`);
+      return priceData;
+    } catch (ccxtError) {
+      this.handleApiError(ccxtError, 'CCXT Fallback');
+      throw ccxtError;
     }
   }
 
   /**
    * Get historical daily USD prices for a cryptocurrency.
-   * Auto-detects the right Binance pair — no manual configuration needed.
+   * Primary source: Binance klines.
+   * Fallback: CCXT OHLCV via exchange pool.
    */
   async getCryptoHistoricalPrices(
     symbol: string,
@@ -323,14 +517,25 @@ class MarketDataService {
     const cached = await cacheService.get<HistoricalPrice[]>(cacheKey);
     if (cached) return cached;
 
+    // --- Primary: Binance ---
     try {
       const prices = await this.fetchBinanceHistoricalUSD(symbol, days);
       await cacheService.set(cacheKey, prices, 21600); // 6 hour cache
       logger.info(`Binance: ${prices.length} candles fetched for ${symbol}`);
       return prices;
-    } catch (error) {
-      this.handleApiError(error, 'Binance Historical');
-      throw error;
+    } catch (binanceError) {
+      const msg = binanceError instanceof Error ? binanceError.message : String(binanceError);
+      logger.warn(`Binance historical fetch failed for ${symbol} — engaging CCXT fallback. Reason: ${msg}`);
+    }
+
+    // --- Fallback: CCXT pool ---
+    try {
+      const prices = await this.fetchCcxtHistoricalUSD(symbol, days);
+      await cacheService.set(cacheKey, prices, 21600);
+      return prices;
+    } catch (ccxtError) {
+      this.handleApiError(ccxtError, 'CCXT Historical Fallback');
+      throw ccxtError;
     }
   }
 

@@ -15,7 +15,6 @@ export interface PortfolioAsset {
   symbol: string;
   amount: number;
   buyingPrice: number;
-  lastAnalyzedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +27,7 @@ export interface PortfolioAssetWithCurrentPrice extends PortfolioAsset {
   totalCost: number; // Original cost of holdings
   profitLoss: number; // Profit or loss amount
   profitLossPercentage: number; // Profit or loss percentage
+  lastAnalyzedAt?: Date;
 }
 
 export interface RecommendationData {
@@ -116,6 +116,13 @@ class PortfolioService {
     try {
       const assets = await prisma.portfolio.findMany({
         orderBy: { createdAt: 'desc' },
+        include: {
+          analyses: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { createdAt: true }
+          }
+        }
       });
 
       const portfolioWithPrices = await Promise.all(
@@ -136,6 +143,7 @@ class PortfolioService {
 
             return {
               ...asset,
+              lastAnalyzedAt: asset.analyses?.[0]?.createdAt,
               currentPrice,
               priceChange,
               priceChangeAbsolute,
@@ -149,6 +157,7 @@ class PortfolioService {
             // Return asset with zero current price if fetch fails
             return {
               ...asset,
+              lastAnalyzedAt: asset.analyses?.[0]?.createdAt,
               currentPrice: 0,
               priceChange: 0,
               priceChangeAbsolute: 0,
@@ -242,18 +251,8 @@ class PortfolioService {
         newsArticles.slice(0, 5)
       );
 
-      // Update lastAnalyzedAt timestamp in database
-      await prisma.portfolio.update({
-        where: { id: portfolioId },
-        data: { lastAnalyzedAt: new Date() },
-      }).catch(err => {
-        logger.error(`Failed to update lastAnalyzedAt for ${portfolio.assetName}:`, err);
-      });
-
-      logger.info(`Recommendation generated for ${portfolio.assetName}: ${recommendation.action}`);
-
-      // Return recommendation without saving to database
-      return {
+      // Build the full recommendation payload
+      const fullRecommendation: RecommendationData = {
         id: `temp-${portfolioId}-${Date.now()}`, // Temporary ID
         action: recommendation.action,
         reasoning: recommendation.reasoning,
@@ -275,9 +274,44 @@ class PortfolioService {
         bollingerBands: technicalIndicators.bollingerBands,
         obv: technicalIndicators.obv,
       };
+
+      // Save the analysis to the PortfolioAnalysis table
+      await prisma.portfolioAnalysis.create({
+        data: { 
+          portfolioId: portfolioId,
+          data: fullRecommendation as any
+        },
+      }).catch(err => {
+        logger.error(`Failed to save analysis for ${portfolio.assetName}:`, err);
+      });
+
+      logger.info(`Recommendation generated for ${portfolio.assetName}: ${recommendation.action}`);
+
+      return fullRecommendation;
     } catch (error) {
       logger.error('Error analyzing asset:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get cached AI-powered recommendation for a portfolio asset
+   */
+  async getCachedAnalysis(portfolioId: string): Promise<RecommendationData | null> {
+    try {
+      const latestAnalysis = await prisma.portfolioAnalysis.findFirst({
+        where: { portfolioId },
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      if (!latestAnalysis) {
+        return null;
+      }
+      
+      return latestAnalysis.data as unknown as RecommendationData;
+    } catch (error) {
+      logger.error('Error fetching cached analysis:', error);
+      return null;
     }
   }
 

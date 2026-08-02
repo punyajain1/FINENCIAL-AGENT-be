@@ -28,8 +28,9 @@
   - Natural Language Processing (NLP) sentiment analysis using **HuggingFace FinBERT**.
   - Real-time event streaming to clients via Server-Sent Events (SSE).
 
-- **🤖 Intelligent Financial Chatbot**
+- **🤖 Intelligent Financial Chatbot with Time-Based RAG**
   - Powered by **Groq Llama-3.3-70B** for ultra-fast, intelligent dialogue turns.
+  - Uses **Time-Based Retrieval-Augmented Generation (RAG)** to dynamically inject the absolute latest database news and portfolio data directly into prompts.
   - Context-aware conversations with persistent 10-turn sliding session memory.
   - Real-time portfolio grounding and strict risk disclaimers.
 

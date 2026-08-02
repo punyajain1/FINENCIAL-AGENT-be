@@ -86,10 +86,10 @@ const elements = {
   recommendationsDeck: document.getElementById('recommendations-deck'),
 };
 
-const BACKEND_URL = 'https://finpilot-backend-api.onrender.com';
+const BACKEND_URL = 'http://localhost:3000';
 
 function getApiUrl(path) {
-  if (window.location.hostname === 'finpilot-backend-api.onrender.com') {
+  if (window.location.hostname === 'http://localhost:3000') {
     return path;
   }
   return `${BACKEND_URL}${path}`;
@@ -376,10 +376,15 @@ elements.addAssetForm.addEventListener('submit', async (e) => {
       closeModal(elements.addAssetModal);
       fetchPortfolio();
     } else {
-      alert(`Error: ${result.error || 'Failed to add asset'}`);
+      // result.errors is an array from validation middleware; result.error is a string from controller
+      const msg = result.error
+        || (Array.isArray(result.errors) ? result.errors.map(e => e.msg).join(', ') : null)
+        || 'Failed to add asset';
+      alert(`Error: ${msg}`);
     }
   } catch (error) {
     console.error('Error adding asset:', error);
+    alert('Network error: Could not reach the server. Is the backend running?');
   }
 });
 
@@ -627,14 +632,10 @@ elements.clearChatBtn.addEventListener('click', async () => {
 
 // --- REAL-TIME WEBSOCKET NEWS HUB ---
 function connectNewsWebSocket() {
-  let wsUrl;
-  if (window.location.hostname === 'finpilot-backend-api-production.up.railway.app') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    wsUrl = `${protocol}//${window.location.host}/ws/news`;
-  } else {
-    // Connect to the remote Railway WebSocket server
-    wsUrl = 'wss://finpilot-backend-api-production.up.railway.app/ws/news';
-  }
+  // Derive WS URL from BACKEND_URL so it always matches the REST API host.
+  // http://... → ws://...   |   https://... → wss://...
+  const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/ws/news';
+
 
   if (state.wsConnection) {
     state.wsConnection.close();
@@ -712,6 +713,13 @@ function renderNewsFeed(news) {
       <p class="text-muted" style="padding: 20px 0;">No news articles available. Press "Force Fetch News" to fetch articles in real-time.</p>
     `;
     return;
+  }
+
+  const fetchTimes = news.map(a => new Date(a.createdAt || a.publishedAt).getTime());
+  const lastFetch = new Date(Math.max(...fetchTimes));
+  const lastFetchedSpan = document.getElementById('last-fetched-time');
+  if (lastFetchedSpan) {
+    lastFetchedSpan.textContent = 'Last fetched: ' + lastFetch.toLocaleString();
   }
 
   elements.newsFeed.innerHTML = news.map(article => {
@@ -801,6 +809,54 @@ elements.triggerNewsFetchBtn.addEventListener('click', async () => {
   }
 });
 
+// Fetch existing news from REST API immediately (no WS needed)
+async function fetchNewsFromApi() {
+  try {
+    const res = await fetch(getApiUrl('/api/news?limit=100'));
+    const result = await res.json();
+    if (result.success && Array.isArray(result.articles) && result.articles.length > 0) {
+      // Only pre-populate if WS hasn't already delivered news
+      if (state.newsList.length === 0) {
+        state.newsList = result.articles;
+        renderNewsFeed(state.newsList);
+
+        // Compute sentiment breakdown and top assets from articles, then render sidebar
+        computeAndRenderSentimentFromArticles(state.newsList);
+
+        console.log(`Loaded ${result.articles.length} news articles from REST API`);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching news from REST API:', error);
+  }
+}
+
+/**
+ * Compute sentiment breakdown and hot assets from a list of articles
+ * and update the sidebar panels without needing a WS news_summary event.
+ */
+function computeAndRenderSentimentFromArticles(articles) {
+  const breakdown = { positive: 0, neutral: 0, negative: 0 };
+  const assetCounts = {};
+
+  articles.forEach(article => {
+    const label = article.sentiment?.label || 'neutral';
+    if (breakdown[label] !== undefined) breakdown[label]++;
+
+    (article.relatedAssets || []).forEach(asset => {
+      assetCounts[asset] = (assetCounts[asset] || 0) + 1;
+    });
+  });
+
+  const topAssets = Object.entries(assetCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([asset]) => asset);
+
+  renderSentimentAndHotAssets({ sentimentBreakdown: breakdown, topAssets });
+}
+
+
 // --- AI PORTFOLIO RECOMMENDATIONS DECK ---
 function renderRecommendationsPage() {
   if (state.assets.length === 0) {
@@ -829,6 +885,125 @@ function renderRecommendationsPage() {
       </div>
     `;
   }).join('');
+
+  // Fetch cached analysis for assets that were previously analyzed
+  state.assets.forEach(async (asset) => {
+    if (asset.lastAnalyzedAt) {
+      try {
+        const res = await fetch(getApiUrl(`/api/portfolio/${asset.id}/analysis`));
+        const result = await res.json();
+        if (result.success && result.data) {
+          renderAnalysisPayload(asset.id, result.data);
+        }
+      } catch (error) {
+        console.error(`Error loading cached analysis for ${asset.assetName}:`, error);
+      }
+    }
+  });
+}
+
+function renderAnalysisPayload(id, data) {
+  const bodyDiv = document.getElementById(`rec-body-${id}`);
+  if (!bodyDiv) return;
+
+  const act = data.action.toLowerCase(); // buy, hold, sell
+  const actionLabel = data.action; // BUY, HOLD, SELL
+
+  // Update recommendation body with premium fade-in style
+  bodyDiv.style.opacity = 0;
+  bodyDiv.style.transition = 'opacity 0.5s ease';
+
+  bodyDiv.innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+      <div>
+        <span class="rec-action-badge ${act}">${escapeHTML(actionLabel)}</span>
+        <span style="margin-left: 12px; font-size: 13px;" class="text-muted">Confidence Score: <strong>${data.confidence}%</strong></span>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 8px 0;">
+        <div class="summary-card" style="padding: 12px 16px;">
+          <span class="summary-label" style="font-size: 10px;">7D Price Target</span>
+          <span style="font-size: 16px;" class="summary-value">${data.priceTarget ? formatCurrency(data.priceTarget) : 'N/A'}</span>
+        </div>
+        <div class="summary-card" style="padding: 12px 16px;">
+          <span class="summary-label" style="font-size: 10px;">Risk Profile</span>
+          <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.riskLevel)}</span>
+        </div>
+        <div class="summary-card" style="padding: 12px 16px;">
+          <span class="summary-label" style="font-size: 10px;">7D Price Change</span>
+          <span style="font-size: 16px; color: ${data.priceChange7d >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}" class="summary-value">${formatPercentage(data.priceChange7d)}</span>
+        </div>
+        <div class="summary-card" style="padding: 12px 16px;">
+          <span class="summary-label" style="font-size: 10px;">Media Sentiment</span>
+          <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.sentimentLabel)} (${(data.sentimentScore * 100).toFixed(0)}%)</span>
+        </div>
+      </div>
+
+      <!-- Advanced Technical Indicators Panel -->
+      <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <h4 style="margin-bottom: 12px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Advanced Technical Indicators (30-Day Calculations)</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+          
+          <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+            <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">RSI (14-period)</div>
+            <div style="font-size: 13px; font-weight: 500;">
+              ${data.rsi !== undefined ? data.rsi : 'N/A'}
+              <span class="tag ${data.rsiSignal === 'BUY' ? 'positive' : data.rsiSignal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 6px;">
+                ${data.rsiSignal || 'NEUTRAL'}
+              </span>
+            </div>
+          </div>
+
+          <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+            <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">MACD (12/26/9 EMA)</div>
+            <div style="font-size: 13px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
+              <span>Line: ${data.macd?.macdLine ?? 'N/A'} | Signal: ${data.macd?.signalLine ?? 'N/A'}</span>
+              <span style="font-size: 11px; color: var(--text-muted);">
+                Hist: ${data.macd?.histogram ?? 'N/A'}
+                <span class="tag ${data.macd?.signal === 'BUY' ? 'positive' : data.macd?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
+                  ${data.macd?.signal || 'NEUTRAL'}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+            <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">Bollinger Bands (20-period)</div>
+            <div style="font-size: 12px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
+              <span>Upper: ${data.bollingerBands?.upper ? formatCurrency(data.bollingerBands.upper) : 'N/A'}</span>
+              <span>Lower: ${data.bollingerBands?.lower ? formatCurrency(data.bollingerBands.lower) : 'N/A'}</span>
+              <span style="font-size: 11px; color: var(--text-muted);">
+                BB Signal: 
+                <span class="tag ${data.bollingerBands?.signal === 'BUY' ? 'positive' : data.bollingerBands?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
+                  ${data.bollingerBands?.signal || 'NEUTRAL'}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
+            <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">On-Balance Volume (OBV)</div>
+            <div style="font-size: 13px; font-weight: 500;">
+              ${data.obv !== undefined ? new Intl.NumberFormat('en-US').format(data.obv) : 'N/A'}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      
+      <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <h4 style="margin-bottom: 8px;">Analytical Reasoning</h4>
+        <ul class="rec-reasoning-list">
+          ${(data.reasoning || []).map(reason => `<li>${escapeHTML(reason)}</li>`).join('')}
+        </ul>
+      </div>
+    </div>
+  `;
+
+  // Trigger fade in
+  setTimeout(() => {
+    bodyDiv.style.opacity = 1;
+  }, 50);
 }
 
 window.runSingleAssetAnalysis = async function (id) {
@@ -920,108 +1095,12 @@ window.runSingleAssetAnalysis = async function (id) {
     // Now render final payload
     if (fetchResult && fetchResult.success && fetchResult.data) {
       const data = fetchResult.data;
-      const act = data.action.toLowerCase(); // buy, hold, sell
-      const actionLabel = data.action; // BUY, HOLD, SELL
 
       // Update last analyzed timestamp locally
       const nowStr = new Date().toLocaleString();
       if (dateSpan) dateSpan.textContent = nowStr;
 
-      // Update recommendation body with premium fade-in style
-      bodyDiv.style.opacity = 0;
-      bodyDiv.style.transition = 'opacity 0.5s ease';
-
-      bodyDiv.innerHTML = `
-        <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
-          <div>
-            <span class="rec-action-badge ${act}">${escapeHTML(actionLabel)}</span>
-            <span style="margin-left: 12px; font-size: 13px;" class="text-muted">Confidence Score: <strong>${data.confidence}%</strong></span>
-          </div>
-          
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 8px 0;">
-            <div class="summary-card" style="padding: 12px 16px;">
-              <span class="summary-label" style="font-size: 10px;">7D Price Target</span>
-              <span style="font-size: 16px;" class="summary-value">${data.priceTarget ? formatCurrency(data.priceTarget) : 'N/A'}</span>
-            </div>
-            <div class="summary-card" style="padding: 12px 16px;">
-              <span class="summary-label" style="font-size: 10px;">Risk Profile</span>
-              <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.riskLevel)}</span>
-            </div>
-            <div class="summary-card" style="padding: 12px 16px;">
-              <span class="summary-label" style="font-size: 10px;">7D Price Change</span>
-              <span style="font-size: 16px; color: ${data.priceChange7d >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}" class="summary-value">${formatPercentage(data.priceChange7d)}</span>
-            </div>
-            <div class="summary-card" style="padding: 12px 16px;">
-              <span class="summary-label" style="font-size: 10px;">Media Sentiment</span>
-              <span style="font-size: 16px;" class="summary-value">${escapeHTML(data.sentimentLabel)} (${(data.sentimentScore * 100).toFixed(0)}%)</span>
-            </div>
-          </div>
-
-          <!-- Advanced Technical Indicators Panel -->
-          <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
-            <h4 style="margin-bottom: 12px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Advanced Technical Indicators (30-Day Calculations)</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-              
-              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
-                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">RSI (14-period)</div>
-                <div style="font-size: 13px; font-weight: 500;">
-                  ${data.rsi !== undefined ? data.rsi : 'N/A'}
-                  <span class="tag ${data.rsiSignal === 'BUY' ? 'positive' : data.rsiSignal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 6px;">
-                    ${data.rsiSignal || 'NEUTRAL'}
-                  </span>
-                </div>
-              </div>
-
-              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
-                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">MACD (12/26/9 EMA)</div>
-                <div style="font-size: 13px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
-                  <span>Line: ${data.macd?.macdLine ?? 'N/A'} | Signal: ${data.macd?.signalLine ?? 'N/A'}</span>
-                  <span style="font-size: 11px; color: var(--text-muted);">
-                    Hist: ${data.macd?.histogram ?? 'N/A'}
-                    <span class="tag ${data.macd?.signal === 'BUY' ? 'positive' : data.macd?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
-                      ${data.macd?.signal || 'NEUTRAL'}
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
-                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">Bollinger Bands (20-period)</div>
-                <div style="font-size: 12px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
-                  <span>Upper: ${data.bollingerBands?.upper ? formatCurrency(data.bollingerBands.upper) : 'N/A'}</span>
-                  <span>Lower: ${data.bollingerBands?.lower ? formatCurrency(data.bollingerBands.lower) : 'N/A'}</span>
-                  <span style="font-size: 11px; color: var(--text-muted);">
-                    BB Signal: 
-                    <span class="tag ${data.bollingerBands?.signal === 'BUY' ? 'positive' : data.bollingerBands?.signal === 'SELL' ? 'negative' : 'neutral'}" style="margin-left: 4px;">
-                      ${data.bollingerBands?.signal || 'NEUTRAL'}
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              <div style="padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--panel-bg);">
-                <div class="summary-label" style="font-size: 9px; margin-bottom: 4px;">On-Balance Volume (OBV)</div>
-                <div style="font-size: 13px; font-weight: 500;">
-                  ${data.obv !== undefined ? new Intl.NumberFormat('en-US').format(data.obv) : 'N/A'}
-                </div>
-              </div>
-
-            </div>
-          </div>
-          
-          <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
-            <h4 style="margin-bottom: 8px;">Analytical Reasoning</h4>
-            <ul class="rec-reasoning-list">
-              ${(data.reasoning || []).map(reason => `<li>${escapeHTML(reason)}</li>`).join('')}
-            </ul>
-          </div>
-        </div>
-      `;
-
-      // Trigger fade in
-      setTimeout(() => {
-        bodyDiv.style.opacity = 1;
-      }, 50);
+      renderAnalysisPayload(id, data);
     } else {
       const errMessage = (fetchResult && fetchResult.error) ? fetchResult.error : 'Server error';
       bodyDiv.innerHTML = `<p class="text-muted small" style="padding: 30px 0; text-align: center; color: var(--accent-red) !important;">Failed to complete analysis: ${escapeHTML(errMessage)}</p>`;
@@ -1050,7 +1129,10 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchPortfolio();
   fetchChatHistory();
 
-  // Connect news streams WebSocket
+  // Load existing news immediately via REST (fast, no WS needed)
+  fetchNewsFromApi();
+
+  // Connect news streams WebSocket (for live real-time updates)
   connectNewsWebSocket();
 
   // Maximum loading safety timeout of 6 seconds to fade out loader in case of server failures

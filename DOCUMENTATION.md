@@ -38,6 +38,11 @@ graph TD
 * **Hugging Face FinBERT**: Ingests headlines and runs sentiment classification (`ProsusAI/finbert`) yielding positive, negative, and neutral weights.
 * **Groq Llama-3.1-8B Fallback**: If the Hugging Face token hits permission constraints (HTTP 403) or rate ceilings, the backend routes sentiment analysis to the hyper-fast `llama-3.1-8b-instant` model under strict JSON response shapes, ensuring zero-downtime execution.
 
+### 3. Chatbot Time-Based RAG Injection
+* **Keyword Matching**: A dedicated extraction engine in `chatbot.service.ts` parses incoming user messages for known financial tickers (`BTC`, `ETH`, `XAU`, etc.).
+* **Zero-Hallucination Retrieval**: Bypassing complex vector embeddings, the engine queries the PostgreSQL `News` table for exact ticker matches and strictly orders by `publishedAt DESC`. It also fetches live user `Portfolio` data.
+* **Prompt Augmentation**: The system dynamically shapes a `[LIVE DATABASE CONTEXT]` string block, prepending it to the AI prompt. This ensures the Groq model bases its financial advice entirely on real-time scraped headlines and live portfolio balances.
+
 ---
 
 ## 📈 Technical Indicators & Mathematical Formulas

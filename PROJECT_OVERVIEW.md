@@ -112,9 +112,9 @@ FinPilot continuously scans the global media landscape to feed its analytical pi
 
 ---
 
-### 4. Interactive Grounded Chatbot (`chatbot.service.ts`)
+### 4. Interactive Grounded Chatbot with Time-Based RAG (`chatbot.service.ts`)
 The API exposes an endpoint for real-time natural language interaction, powered by Groq Llama-3.3-70B:
-* **Market-Aware Synthesis**: Evaluates dynamic portfolio indices and sentiment scores to reply with specialized asset guidance.
+* **Time-Based RAG Architecture**: The chatbot utilizes a fast keyword extractor to identify target assets (e.g., BTC, Gold). It dynamically queries the PostgreSQL `News` table (filtering strictly by `publishedAt DESC` to ensure freshness) and the `Portfolio` metrics, injecting this live data straight into the AI's system prompt before inference. This effectively eliminates market data hallucinations.
 * **Context Preservation**: The service tracks and stores conversational threads in `ChatHistory`, feeding up to the last 10 exchanges back into the prompt buffer for continuous context.
 
 ---

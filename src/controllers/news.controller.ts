@@ -113,6 +113,18 @@ export const triggerNewsFetch = async (req: Request, res: Response) => {
   try {
     logger.info('Manual news fetch triggered');
     
+    // Purge news older than 5 days
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const deleted = await prisma.news.deleteMany({
+      where: {
+        publishedAt: {
+          lt: fiveDaysAgo,
+        },
+      },
+    });
+    logger.info(`Purged ${deleted.count} news articles older than 5 days.`);
+    
     const portfolios = await portfolioService.getPortfolio();
     
     if (portfolios.length === 0) {

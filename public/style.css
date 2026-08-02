@@ -500,12 +500,14 @@ tr:last-child td {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 32px;
+  align-items: start;
 }
 
 .news-list {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0; /* critical: lets the 1fr column actually shrink */
 }
 
 .news-item {
@@ -558,6 +560,8 @@ tr:last-child td {
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .news-footer {

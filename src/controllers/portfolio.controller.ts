@@ -143,3 +143,29 @@ export const analyzeAsset = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getAssetAnalysis = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cached = await portfolioService.getCachedAnalysis(id);
+    
+    if (!cached) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No analysis yet',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: cached,
+    });
+  } catch (error) {
+    logger.error('Get asset analysis error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch asset analysis',
+    });
+  }
+};

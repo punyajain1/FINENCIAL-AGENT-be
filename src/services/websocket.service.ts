@@ -89,7 +89,7 @@ class WebSocketService {
       // Fetch all news from database, ordered by most recent first
       const allNews = await prisma.news.findMany({
         orderBy: { publishedAt: 'desc' },
-        take: 20, // Limit to latest 20 articles to avoid overwhelming the client
+        take: 100, // Send latest 100 articles to new clients
         select: {
           id: true,
           title: true,

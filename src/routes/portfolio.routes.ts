@@ -6,6 +6,7 @@ import {
   removeAsset,
   getRecommendations,
   analyzeAsset,
+  getAssetAnalysis,
 } from '../controllers/portfolio.controller';
 import {
   addAssetValidation,
@@ -22,5 +23,6 @@ router.put('/update/:id', updateAssetValidation, asyncHandler(updateAsset));
 router.delete('/remove/:id', removeAssetValidation, asyncHandler(removeAsset));
 router.get('/recommendations', asyncHandler(getRecommendations));
 router.post('/analyze/:id', asyncHandler(analyzeAsset));
+router.get('/:id/analysis', asyncHandler(getAssetAnalysis));
 
 export default router;

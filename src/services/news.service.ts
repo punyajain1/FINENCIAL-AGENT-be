@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { XMLParser } from 'fast-xml-parser';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import cacheService from './cache.service';
@@ -20,6 +21,7 @@ export interface NewsArticle {
   assetType?: AssetType;
   sentiment: SentimentResult;
   relevanceScore: number;
+  createdAt?: Date;
 }
 
 export interface NewsFilter {
@@ -35,6 +37,34 @@ export interface NewsFilter {
 /**
  * Service for fetching and managing news from multiple sources
  */
+
+/** All 12 Tier-1 / Tier-2 crypto RSS feeds. No API key required. */
+const RSS_FEEDS: Array<{ name: string; url: string; tier: 1 | 2 }> = [
+  { name: 'Bloomberg Crypto',    url: 'https://feeds.bloomberg.com/crypto/news.rss',                                                                           tier: 1 },
+  { name: 'Financial Times',     url: 'https://www.ft.com/crypto?format=rss',                                                                                  tier: 1 },
+  { name: 'CoinDesk',            url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',                                                                        tier: 1 },
+  { name: 'The Block',           url: 'https://www.theblock.co/rss.xml',                                                                                        tier: 1 },
+  { name: 'Cointelegraph',       url: 'https://cointelegraph.com/rss',                                                                                          tier: 1 },
+  { name: 'Decrypt',             url: 'https://decrypt.co/feed',                                                                                                tier: 1 },
+  { name: 'Bitcoin Magazine',    url: 'https://bitcoinmagazine.com/feed',                                                                                        tier: 1 },
+  { name: 'The Defiant',         url: 'https://thedefiant.io/feed/',                                                                                            tier: 2 },
+  { name: 'Protos',              url: 'https://protos.com/feed',                                                                                                tier: 2 },
+  { name: 'Messari',             url: 'https://news.google.com/rss/search?q=site:messari.io%20(bitcoin%20OR%20ethereum%20OR%20crypto)&hl=en-US&gl=US&ceid=US:en', tier: 1 },
+  { name: 'Unchained',           url: 'https://news.google.com/rss/search?q=site:unchainedcrypto.com%20crypto&hl=en-US&gl=US&ceid=US:en',                      tier: 1 },
+  { name: 'CryptoSlate',         url: 'https://cryptoslate.com/feed/',                                                                                          tier: 2 },
+];
+
+/** Keywords used to filter RSS items that are relevant to a specific asset. */
+const ASSET_KEYWORDS: Record<string, string[]> = {
+  BTC:     ['bitcoin', 'btc', 'satoshi', 'lightning network', 'cryptocurrency'],
+  ETH:     ['ethereum', 'eth', 'ether', 'evm', 'vitalik', 'solidity', 'defi', 'nft', 'cryptocurrency'],
+  XAU:     ['gold', 'xau', 'bullion', 'precious metal'],
+  XAG:     ['silver', 'xag', 'precious metal'],
+  // generic fallbacks
+  CRYPTO:  ['bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'blockchain', 'defi', 'nft'],
+  METAL:   ['gold', 'silver', 'xau', 'xag', 'precious metal'],
+};
+
 class NewsService {
   /**
    * Fetch news for specific assets
@@ -69,20 +99,14 @@ class NewsService {
     }
 
     const searchQuery = this.buildSearchQuery(asset, assetType);
-    let articles: NewsArticle[] = [];
 
-    // Try multiple news sources
-    try {
-      if (config.apiKeys.newsApi) {
-        articles = await this.fetchFromNewsApi(searchQuery, asset, assetType);
-      } else if (config.apiKeys.gnews) {
-        articles = await this.fetchFromGNews(searchQuery, asset, assetType);
-      } else if (config.apiKeys.currentsApi) {
-        articles = await this.fetchFromCurrentsApi(searchQuery, asset, assetType);
-      }
-    } catch (error) {
-      logger.error(`Error fetching news for ${asset}:`, error);
-    }
+    // Run paid API source + all RSS feeds in parallel
+    const [paidArticles, rssArticles] = await Promise.all([
+      this.fetchFromPaidApi(searchQuery, asset, assetType),
+      this.fetchFromRss(asset, assetType),
+    ]);
+
+    let articles = this.deduplicateNews([...paidArticles, ...rssArticles]);
 
     // Analyze sentiment for each article
     if (articles.length > 0) {
@@ -91,6 +115,173 @@ class NewsService {
 
     await cacheService.set(cacheKey, articles, 300); // Cache for 5 minutes
     return articles;
+  }
+
+  /**
+   * Fetch news from whichever paid API source is configured (NewsAPI / GNews / Currents).
+   * Returns an empty array if no key is configured — RSS will still run.
+   */
+  private async fetchFromPaidApi(query: string, asset: string, assetType: AssetType): Promise<NewsArticle[]> {
+    try {
+      if (config.apiKeys.newsApi) {
+        return await this.fetchFromNewsApi(query, asset, assetType);
+      } else if (config.apiKeys.gnews) {
+        return await this.fetchFromGNews(query, asset, assetType);
+      } else if (config.apiKeys.currentsApi) {
+        return await this.fetchFromCurrentsApi(query, asset, assetType);
+      }
+    } catch (error) {
+      logger.error(`Error fetching paid-API news for ${asset}:`, error);
+    }
+    return [];
+  }
+
+  /**
+   * Fetch and parse all RSS feeds in parallel.
+   * Failed feeds are silently skipped so one bad feed never blocks the rest.
+   */
+  private async fetchFromRss(asset: string, assetType: AssetType): Promise<NewsArticle[]> {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      cdataPropName: '__cdata',
+    });
+
+    // Determine which keywords to match for this asset
+    const upperAsset = asset.toUpperCase();
+    const keywords = [
+      ...(ASSET_KEYWORDS[upperAsset] ?? []),
+      ...(assetType === 'CRYPTO' ? ASSET_KEYWORDS['CRYPTO'] : ASSET_KEYWORDS['METAL']),
+    ];
+    const uniqueKeywords = [...new Set(keywords.map((k) => k.toLowerCase()))];
+
+    const results = await Promise.allSettled(
+      RSS_FEEDS.map(async (feed) => {
+        try {
+          const response = await axios.get(feed.url, {
+            timeout: 8000,
+            headers: {
+              'User-Agent': 'FinPilot/1.0 (RSS reader; financial data aggregator)',
+              'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            },
+          });
+
+          const parsed = parser.parse(response.data as string);
+          const channel = parsed?.rss?.channel ?? parsed?.feed;
+          if (!channel) return [];
+
+          // Support both RSS <item> and Atom <entry>
+          const rawItems: any[] = [
+            ...(Array.isArray(channel.item) ? channel.item : channel.item ? [channel.item] : []),
+            ...(Array.isArray(channel.entry) ? channel.entry : channel.entry ? [channel.entry] : []),
+          ];
+
+          const articles: NewsArticle[] = [];
+
+          for (const item of rawItems) {
+            const title: string = this.extractText(item.title) ?? '';
+            const description: string = this.extractText(item.description) ?? this.extractText(item.summary) ?? '';
+            const combinedText = `${title} ${description}`.toLowerCase();
+
+            // Filter: only keep articles relevant to this asset
+            const isRelevant = uniqueKeywords.some((kw) => combinedText.includes(kw));
+            if (!isRelevant) continue;
+
+            const url: string = this.extractLink(item) ?? '';
+            if (!url) continue;
+
+            const publishedAt = this.parseDate(item.pubDate ?? item.published ?? item.updated);
+            const imageUrl = this.extractImageUrl(item);
+
+            articles.push({
+              title: title.trim(),
+              description: description.trim(),
+              content: this.extractText(item['content:encoded']) ?? description.trim(),
+              source: feed.name,
+              author: this.extractText(item.author) ?? this.extractText(item['dc:creator']) ?? feed.name,
+              publishedAt,
+              url,
+              imageUrl,
+              relatedAssets: [asset],
+              assetType,
+              sentiment: { score: 0, label: 'neutral' as const, confidence: 0 },
+              relevanceScore: this.calculateRelevance(title, description, asset),
+            });
+          }
+
+          logger.debug(`RSS ${feed.name}: ${articles.length} relevant articles for ${asset}`);
+          return articles;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.warn(`RSS feed failed [${feed.name}]: ${msg}`);
+          return [];
+        }
+      })
+    );
+
+    const allArticles: NewsArticle[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allArticles.push(...result.value);
+      }
+    }
+
+    logger.info(`RSS: fetched ${allArticles.length} total articles for ${asset} across ${RSS_FEEDS.length} feeds`);
+    return allArticles;
+  }
+
+  /** Extract plain text from an RSS field that may be a string, CDATA object, or nested object. */
+  private extractText(field: any): string | undefined {
+    if (!field) return undefined;
+    if (typeof field === 'string') return field;
+    if (typeof field === 'number') return String(field);
+    if (field.__cdata) return field.__cdata;
+    if (field['#text']) return field['#text'];
+    return undefined;
+  }
+
+  /** Extract article URL from an RSS item (handles <link>, <guid isPermaLink>, Atom <link href=>). */
+  private extractLink(item: any): string | undefined {
+    if (!item) return undefined;
+    // Atom: <link href="..." rel="alternate">
+    if (item.link && typeof item.link === 'object') {
+      if (Array.isArray(item.link)) {
+        const alt = item.link.find((l: any) => l['@_rel'] === 'alternate' || !l['@_rel']);
+        return alt?.['@_href'] ?? undefined;
+      }
+      return item.link['@_href'] ?? undefined;
+    }
+    // RSS: <link>url</link>
+    if (typeof item.link === 'string') return item.link;
+    // <guid isPermaLink="true">
+    const guid = item.guid;
+    if (typeof guid === 'string' && guid.startsWith('http')) return guid;
+    if (guid && guid['#text'] && guid['@_isPermaLink'] !== 'false') return guid['#text'];
+    return undefined;
+  }
+
+  /** Extract image URL from common RSS image fields. */
+  private extractImageUrl(item: any): string | undefined {
+    // <media:content url="..."> or <media:thumbnail url="...">
+    const mediaContent = item['media:content'] ?? item['media:thumbnail'];
+    if (mediaContent) {
+      if (typeof mediaContent === 'object' && mediaContent['@_url']) return mediaContent['@_url'];
+      if (Array.isArray(mediaContent) && mediaContent[0]?.['@_url']) return mediaContent[0]['@_url'];
+    }
+    // <enclosure url="..." type="image/...">
+    const enclosure = item.enclosure;
+    if (enclosure && enclosure['@_url'] && enclosure['@_type']?.startsWith('image')) {
+      return enclosure['@_url'];
+    }
+    return undefined;
+  }
+
+  /** Parse a date string leniently; falls back to now if unparseable. */
+  private parseDate(raw: any): Date {
+    if (!raw) return new Date();
+    const str = typeof raw === 'string' ? raw : String(raw);
+    const parsed = new Date(str);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
   }
 
   /**
@@ -382,6 +573,7 @@ class NewsService {
         confidence: Math.abs(article.sentimentScore),
       },
       relevanceScore: article.relevanceScore,
+      createdAt: article.createdAt,
     }));
 
     return { articles: newsArticles, total };

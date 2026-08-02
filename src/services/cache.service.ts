@@ -22,9 +22,9 @@ class CacheService {
           return data;
         } else {
           // Explicitly delete expired cache to save DB space
-          await prisma.analysisCache.delete({
+          await prisma.analysisCache.deleteMany({
             where: { cacheKey: key },
-          }).catch(() => {});
+          });
         }
       }
     } catch (error) {
@@ -68,7 +68,7 @@ class CacheService {
    */
   async delete(key: string): Promise<void> {
     try {
-      await prisma.analysisCache.delete({
+      await prisma.analysisCache.deleteMany({
         where: { cacheKey: key },
       });
       logger.debug(`Cache deleted: ${key}`);
