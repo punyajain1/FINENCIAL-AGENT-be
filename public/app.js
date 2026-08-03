@@ -86,10 +86,10 @@ const elements = {
   recommendationsDeck: document.getElementById('recommendations-deck'),
 };
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://finpilot-backend-api.onrender.com';
 
 function getApiUrl(path) {
-  if (window.location.hostname === 'http://localhost:3000') {
+  if (window.location.hostname === 'https://finpilot-backend-api.onrender.com') {
     return path;
   }
   return `${BACKEND_URL}${path}`;
