@@ -180,7 +180,7 @@ TEXT TO ANALYZE:
 "${text.substring(0, 1000)}"\``;
 
       const completion = await this.groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: 'You are a financial sentiment analysis expert. Always respond with raw valid JSON only.' },
           { role: 'user', content: prompt },
