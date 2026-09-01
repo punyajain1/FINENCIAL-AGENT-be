@@ -14,7 +14,7 @@ FinPilot aggregates data from live precious metals markets, active crypto rates,
 graph TD
     Client[Browser Client app.js] <-->|HTTP/WS| Express[Express Server server.ts]
     Express <--> Database[(Prisma DB / PostgreSQL)]
-    Express -->|Groq API| Groq[Groq Llama-3.3-70B / Llama-3.1-8B]
+    Express -->|Groq API| Groq[Groq GPT-OSS 120B (openai/gpt-oss-120b)]
     Express -->|HuggingFace API| HF[HF Sentiment FinBERT]
     Express -->|Gold API v2| GoldAPI[Gold API Rate Engine]
     Express -->|WebSocket Tickers| CryptoAPI[Crypto Rates Stream]
@@ -36,7 +36,7 @@ graph TD
 
 ### 2. NLP Sentiment Processing
 * **Hugging Face FinBERT**: Ingests headlines and runs sentiment classification (`ProsusAI/finbert`) yielding positive, negative, and neutral weights.
-* **Groq Llama-3.1-8B Fallback**: If the Hugging Face token hits permission constraints (HTTP 403) or rate ceilings, the backend routes sentiment analysis to the hyper-fast `llama-3.1-8b-instant` model under strict JSON response shapes, ensuring zero-downtime execution.
+* **Groq GPT-OSS 120B Fallback**: If the Hugging Face token hits permission constraints (HTTP 403) or rate ceilings, the backend routes sentiment analysis to the high-capacity `openai/gpt-oss-120b` model under strict JSON response shapes, ensuring zero-downtime execution.
 
 ### 3. Chatbot Time-Based RAG Injection
 * **Keyword Matching**: A dedicated extraction engine in `chatbot.service.ts` parses incoming user messages for known financial tickers (`BTC`, `ETH`, `XAU`, etc.).

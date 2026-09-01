@@ -99,7 +99,7 @@
             <div class="chat-history" id="chat-history-box">
               <div class="chat-message assistant">
                 <div class="message-content">
-                  Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
+                  Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq GPT-OSS 120B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
                 </div>
               </div>
             </div>
@@ -124,7 +124,7 @@
             </div>
             <h3>Verified Data Sources</h3>
             <div id="sources-container" class="sources-list">
-              <p class="text-muted small">Verified source links crawled by Groq Llama-3.3 during chat turns will appear here.</p>
+              <p class="text-muted small">Verified source links crawled by Groq GPT-OSS 120B during chat turns will appear here.</p>
             </div>
           </div>
         </div>
@@ -192,7 +192,7 @@
           <div class="ai-hud-grid">
             <div class="ai-hud-item">
               <span class="hud-label">Cognitive Model Brain</span>
-              <span class="hud-value"><strong>Groq Llama-3.3-70B</strong></span>
+              <span class="hud-value"><strong>Groq GPT-OSS 120B</strong></span>
             </div>
             <div class="ai-hud-item">
               <span class="hud-label">Sentiment NLP Model</span>
@@ -364,7 +364,7 @@
                       <div class="diagram-node node-ai">
                         <div class="node-icon">🧠</div>
                         <div class="node-title">Cognitive AI Models</div>
-                        <div class="node-details">Llama-3.3-70B + Llama-3.1-8B</div>
+                        <div class="node-details">GPT-OSS 120B + FinBERT NLP</div>
                         <div class="node-status"><span class="status-dot gold"></span>FinBERT Sentiment NLP</div>
                       </div>
                     </div>
@@ -394,16 +394,16 @@
                 <div class="pipeline-step">
                   <div class="step-num">B</div>
                   <div class="step-content">
-                    <h4>Zero-Downtime Fallback: Groq Llama-3.1-8B</h4>
-                    <p>If the primary HuggingFace sentiment API hits rate limits or authorization constraints (e.g. HTTP 403), the system triggers an instantaneous fallback. It routes the text to the ultra-low latency Groq <code>llama-3.1-8b-instant</code> engine, requesting response formatting as a strictly validated JSON structure.</p>
+                    <h4>Zero-Downtime Fallback: Groq GPT-OSS 120B</h4>
+                    <p>If the primary HuggingFace sentiment API hits rate limits or authorization constraints (e.g. HTTP 403), the system triggers an instantaneous fallback. It routes the text to the ultra-low latency Groq <code>openai/gpt-oss-120b</code> engine, requesting response formatting as a strictly validated JSON structure.</p>
                   </div>
                 </div>
                 
                 <div class="pipeline-step">
                   <div class="step-num">C</div>
                   <div class="step-content">
-                    <h4>Grounded Assistant: Meta Llama-3.3-70B</h4>
-                    <p>For dialog interactions, the assistant calls Meta's advanced <code>llama-3.3-70b-versatile</code> model. It processes financial data vectors, evaluates market news metrics, maintains dialogue state across a 10-turn sliding history buffer, and formulates precise analytical replies.</p>
+                    <h4>Grounded Assistant: Groq GPT-OSS 120B</h4>
+                    <p>For dialog interactions, the assistant calls the high-capacity <code>openai/gpt-oss-120b</code> model via Groq. It processes financial data vectors, evaluates market news metrics, maintains dialogue state across a 10-turn sliding history buffer, and formulates precise analytical replies.</p>
                   </div>
                 </div>
                 
@@ -591,10 +591,10 @@
                   <div class="api-header">
                     <span class="api-badge post">POST</span>
                     <span class="api-route">/api/chat</span>
-                    <span class="api-summary">Interact with Groq Llama-3.3 Chatbot</span>
+                    <span class="api-summary">Interact with Groq GPT-OSS 120B Chatbot</span>
                   </div>
                   <div class="api-details">
-                    <p>Sends queries to the cognitive Groq Llama-3.3-70B chat assistant, maintaining multi-turn context indices.</p>
+                    <p>Sends queries to the cognitive Groq GPT-OSS 120B chat assistant, maintaining multi-turn context indices.</p>
                     <div class="param-title">Request Payload:</div>
                     <pre><code>{
   "message": "What is the positive or negative sentiment impact on ETH today?",
@@ -658,7 +658,7 @@
                 <div class="tech-card-mini">
                   <span class="tech-icon">🤖</span>
                   <div class="tech-info">
-                    <h5>Meta Llama 3.3</h5>
+                    <h5>GPT-OSS 120B</h5>
                     <p>Advanced LLM cognitive engine</p>
                   </div>
                 </div>

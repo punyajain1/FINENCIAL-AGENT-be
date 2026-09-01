@@ -470,7 +470,7 @@ function renderChatHistory(messages) {
   elements.chatHistoryBox.innerHTML = `
     <div class="chat-message assistant">
       <div class="message-content">
-        Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
+        Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq GPT-OSS 120B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
       </div>
     </div>
   `;
@@ -613,7 +613,7 @@ elements.clearChatBtn.addEventListener('click', async () => {
       elements.chatHistoryBox.innerHTML = `
         <div class="chat-message assistant">
           <div class="message-content">
-            Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq Llama-3.3-70B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
+            Hello, I am FinPilot, your advanced AI financial advisor powered by <strong>Groq GPT-OSS 120B</strong> and <strong>HuggingFace FinBERT</strong> sentiment models. How can I help you analyze cryptocurrencies, precious metals, or your portfolio positions today?
           </div>
         </div>
       `;
@@ -1024,7 +1024,7 @@ window.runSingleAssetAnalysis = async function (id) {
     { num: 1, title: 'Syncing Live Asset Quotes', desc: 'Fetching precious metals pricing (Gold API v2) and active crypto WebSocket feeds...' },
     { num: 2, title: 'NLP News Sentiment Scanning', desc: 'Crawling recent media articles and classifying sentiment using HuggingFace FinBERT...' },
     { num: 3, title: 'Calculating Technical Indicators', desc: 'Scanning price action histories to compute active RSI, MACD, and EMA support metrics...' },
-    { num: 4, title: 'Groq Llama-3.3 Synthesis', desc: 'Invoking the Groq 70B cognitive optimizer to formulate trading targets and strategies...' }
+    { num: 4, title: 'Groq GPT-OSS 120B Synthesis', desc: 'Invoking the Groq GPT-OSS 120B cognitive optimizer to formulate trading targets and strategies...' }
   ];
 
   // Render initial stepper HTML

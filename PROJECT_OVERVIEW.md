@@ -2,7 +2,7 @@
 
 Welcome to **FinPilot Backend API**, a state-of-the-art, AI-powered financial advisor and portfolio monitoring system. The project is specifically engineered to analyze, track, and provide recommendations for cryptocurrencies (**Bitcoin, Ethereum**) and precious metals (**Gold, Silver**). 
 
-By combining real-time market APIs, financial news sentiment analysis (using FinBERT), and Meta's state-of-the-art Llama-3.3-70B model running on high-speed Groq SDK inference, FinPilot behaves as a fully automated, self-sustaining financial analyst that runs 24/7.
+By combining real-time market APIs, financial news sentiment analysis (using FinBERT), and Groq's high-capacity GPT-OSS 120B model (`openai/gpt-oss-120b`) running on high-speed Groq SDK inference, FinPilot behaves as a fully automated, self-sustaining financial analyst that runs 24/7.
 
 ---
 
@@ -17,7 +17,7 @@ graph TD
     Controllers <--> Services[Services: Chatbot, MarketData, News, Sentiment, Cache]
     Services <--> DB[(PostgreSQL Database via Prisma)]
     Services <--> Cron[Cron Scheduler: Every 5 mins]
-    Services <--> Llama[Groq Llama-3.3-70B AI: Recommendations & Chat]
+    Services <--> GPT120B[Groq GPT-OSS 120B AI: Recommendations & Chat]
     Services <--> FinBERT[HuggingFace FinBERT: Sentiment Analysis]
     Services <--> ExtAPIs[External Market & News APIs: CoinGecko, GoldAPI, NewsAPI]
 ```
@@ -93,7 +93,7 @@ When a portfolio asset is analyzed (either manually via REST endpoints or automa
    * Computes **Volatility** (standard deviation of daily price ranges).
    * Detects the overarching price **Trend** (`UP`, `DOWN`, or `SIDEWAYS`).
 3. **Sentiment Aggregation**: Retrieves the latest news articles for the asset, aggregating recent sentiment scores.
-4. **AI Generation (Groq Llama-3.3)**: Sends the position payload (purchase price, profit/loss status, moving averages, volatility, sentiment metrics, and raw news headlines) to Groq's <code>llama-3.3-70b-versatile</code> model using a structured prompt.
+4. **AI Generation (Groq GPT-OSS 120B)**: Sends the position payload (purchase price, profit/loss status, moving averages, volatility, sentiment metrics, and raw news headlines) to Groq's <code>openai/gpt-oss-120b</code> model using a structured prompt.
 5. **Recommendation Output**: The model responds with a structured JSON payload recommending a `BUY`, `SELL`, or `HOLD` action, along with:
    * **Reasoning**: 4-6 bulleted analytical justifications.
    * **Confidence**: 0-100% confidence level.
@@ -113,7 +113,7 @@ FinPilot continuously scans the global media landscape to feed its analytical pi
 ---
 
 ### 4. Interactive Grounded Chatbot with Time-Based RAG (`chatbot.service.ts`)
-The API exposes an endpoint for real-time natural language interaction, powered by Groq Llama-3.3-70B:
+The API exposes an endpoint for real-time natural language interaction, powered by Groq GPT-OSS 120B (`openai/gpt-oss-120b`):
 * **Time-Based RAG Architecture**: The chatbot utilizes a fast keyword extractor to identify target assets (e.g., BTC, Gold). It dynamically queries the PostgreSQL `News` table (filtering strictly by `publishedAt DESC` to ensure freshness) and the `Portfolio` metrics, injecting this live data straight into the AI's system prompt before inference. This effectively eliminates market data hallucinations.
 * **Context Preservation**: The service tracks and stores conversational threads in `ChatHistory`, feeding up to the last 10 exchanges back into the prompt buffer for continuous context.
 
@@ -127,7 +127,7 @@ src/
 │   ├── config.ts         # Environment variables & runtime configurations
 │   └── database.ts       # Prisma Client instantiation
 ├── controllers/
-│   ├── chat.controller.ts       # Chat endpoint handler, invokes Llama Chat
+│   ├── chat.controller.ts       # Chat endpoint handler, invokes GPT-OSS 120B Chat
 │   ├── news.controller.ts       # Retrieves stored news, SSE stream, manual news fetching
 │   └── portfolio.controller.ts  # CRUD for holdings, fetches on-demand recommendations
 ├── middleware/
@@ -140,7 +140,7 @@ src/
 │   └── portfolio.routes.ts # GET /api/portfolio, POST /api/portfolio/add
 ├── services/
 │   ├── cache.service.ts       # Two-tier cache service (node-cache & DB)
-│   ├── chatbot.service.ts     # Groq Llama-3.3-70B Chat engine with context history
+│   ├── chatbot.service.ts     # Groq GPT-OSS 120B Chat engine with context history
 │   ├── cron.service.ts        # Node-cron scheduler for periodic market parsing
 │   ├── marketData.service.ts  # CoinGecko/Metals-API price & technical indicator math
 │   ├── news.service.ts        # News API aggregator, keyword filtering, and db storage
