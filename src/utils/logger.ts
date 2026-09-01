@@ -38,21 +38,33 @@ const consoleFormat = winston.format.combine(
   })
 );
 
-export const logger = winston.createLogger({
-  level: config.logging.level,
-  format: logFormat,
-  transports: [
-    new winston.transports.Console({
-      format: consoleFormat,
-    }),
+// Vercel (and most serverless runtimes) have a read-only filesystem — only /tmp
+// is writable, but file logs there are ephemeral and per-invocation anyway.
+// Console output is captured natively by Vercel's log pipeline.
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+const transports: winston.transport[] = [
+  new winston.transports.Console({
+    format: consoleFormat,
+  }),
+];
+
+if (!isServerless) {
+  transports.push(
     new winston.transports.File({
       filename: 'logs/error.log',
       level: 'error',
     }),
     new winston.transports.File({
       filename: 'logs/combined.log',
-    }),
-  ],
+    })
+  );
+}
+
+export const logger = winston.createLogger({
+  level: config.logging.level,
+  format: logFormat,
+  transports,
 });
 
 export const stream = {
